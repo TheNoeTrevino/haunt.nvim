@@ -1,4 +1,8 @@
 ---@class haunt.Api
+---@field get_bookmarks fun(): table[]
+---@field delete_by_id fun(bookmark_id: string): boolean
+---@field toggle fun(): boolean
+---@field annotate fun(text?: string): nil
 local M = {}
 
 -- Module-level variable to store bookmarks in memory
@@ -357,6 +361,66 @@ function M.load()
 	return false
 end
 
+--- Restore bookmark visuals for a specific buffer if it has bookmarks
+--- This is called when a buffer is opened to restore visual elements
+--- Skips restoration if visuals already exist (duplicate prevention)
+---@param bufnr number Buffer number to restore bookmarks for
+---@return boolean success True if restoration succeeded or was skipped, false on error
+function M.restore_buffer_bookmarks(bufnr)
+	ensure_modules()
+
+	-- Validate buffer can have bookmarks
+	local valid, error_msg = validate_buffer_for_bookmarks(bufnr)
+	if not valid then
+		return true -- Not an error, just not a valid bookmark buffer
+	end
+
+	-- Check if bookmarks have already been restored for this buffer
+	-- This prevents duplicate restoration
+	local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.namespace, 0, -1, { limit = 1 })
+
+	if #extmarks > 0 then
+		-- Already restored
+		return true
+	end
+
+	-- Get the file path for this buffer (normalized)
+	local filepath = normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
+	if filepath == "" then
+		return true -- Empty filepath, nothing to do
+	end
+
+	-- Find all bookmarks for this file
+	local buffer_bookmarks = {}
+	for _, bookmark in ipairs(bookmarks) do
+		if bookmark.file == filepath then
+			table.insert(buffer_bookmarks, bookmark)
+		end
+	end
+
+	-- If no bookmarks for this file, nothing to do
+	if #buffer_bookmarks == 0 then
+		return true
+	end
+
+	-- Restore visual elements for each bookmark
+	local success = true
+	for _, bookmark in ipairs(buffer_bookmarks) do
+		-- Use pcall to handle race conditions where buffer becomes invalid
+		local ok, err = pcall(restore_bookmark_display, bufnr, bookmark)
+		if not ok then
+			-- Log at DEBUG level - this is expected in race conditions
+			vim.notify(
+				string.format("haunt.nvim: Failed to restore bookmark in %s: %s", bookmark.file, tostring(err)),
+				vim.log.levels.DEBUG
+			)
+			success = false
+		end
+	end
+
+	return success
+end
+
 --- Save bookmarks to persistence
 --- This can be called manually to force a save
 ---@return boolean success True if save succeeded, false otherwise
@@ -708,6 +772,52 @@ function M.prev()
 
 	-- No bookmark found before current line, wrap to last bookmark
 	vim.api.nvim_win_set_cursor(0, { file_bookmarks[#file_bookmarks].line, 0 })
+	return true
+end
+
+--- Delete a bookmark by its ID
+--- This is useful for programmatic deletion without needing to navigate to the bookmark
+---@param bookmark_id string The unique ID of the bookmark to delete
+---@return boolean success True if the bookmark was deleted, false otherwise
+function M.delete_by_id(bookmark_id)
+	ensure_modules()
+
+	-- Find the bookmark with this ID
+	local bookmark_index = nil
+	local bookmark = nil
+	for i, bm in ipairs(bookmarks) do
+		if bm.id == bookmark_id then
+			bookmark = bm
+			bookmark_index = i
+			break
+		end
+	end
+
+	if not bookmark then
+		vim.notify("haunt.nvim: Bookmark not found", vim.log.levels.WARN)
+		return false
+	end
+
+	-- Get the buffer for this file (or load it)
+	local bufnr = vim.fn.bufnr(bookmark.file)
+	if bufnr == -1 then
+		bufnr = vim.fn.bufadd(bookmark.file)
+		vim.fn.bufload(bufnr)
+	end
+
+	-- Clean up visual elements
+	cleanup_bookmark_visuals(bufnr, bookmark)
+
+	-- Remove from bookmarks table
+	table.remove(bookmarks, bookmark_index)
+
+	-- Save to persistence
+	local save_ok = persistence.save_bookmarks(bookmarks)
+	if not save_ok then
+		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
+		return false
+	end
+
 	return true
 end
 
