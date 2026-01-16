@@ -19,4 +19,4 @@ vim.defer_fn(function()
     -- This ensures basic functionality works out of the box
     haunt.setup()
   end
-end, 0)
+end, 100) -- Delay increased to 100ms to allow lazy.nvim's config hook to run first
