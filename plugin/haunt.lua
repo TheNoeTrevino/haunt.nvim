@@ -13,14 +13,10 @@ vim.defer_fn(function()
   -- Only auto-setup if user hasn't already called setup
   local haunt = require('haunt')
 
-  -- Check if haunt has a flag indicating setup was called
-  -- We'll add this check to the init.lua module
-  local config = haunt.get_config()
-
-  -- If config is still default (no user setup), initialize with defaults
-  if config then
-    -- User can still override by calling setup() in their config
-    -- This just ensures basic functionality works out of the box
+  -- Check if setup has already been called
+  if not haunt.is_setup() then
+    -- User hasn't called setup() yet, so initialize with defaults
+    -- This ensures basic functionality works out of the box
     haunt.setup()
   end
 end, 0)

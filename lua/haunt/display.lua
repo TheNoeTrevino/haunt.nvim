@@ -77,8 +77,16 @@ end
 --- Hide annotation by removing the extmark
 --- @param bufnr number Buffer number
 --- @param extmark_id number The extmark ID to remove
+---@return boolean success True if hiding was successful, false otherwise
 function M.hide_annotation(bufnr, extmark_id)
-  vim.api.nvim_buf_del_extmark(bufnr, M.namespace, extmark_id)
+  -- Validate buffer
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return false
+  end
+
+  -- Try to delete extmark (may fail if extmark doesn't exist, which is OK)
+  local ok = pcall(vim.api.nvim_buf_del_extmark, bufnr, M.namespace, extmark_id)
+  return ok
 end
 
 --- Set a bookmark extmark for line tracking
@@ -254,42 +262,17 @@ function M.unplace_sign(bufnr, sign_id)
 end
 
 --- Update bookmark signs based on current extmark positions
---- This function reads extmark positions and updates sign placements accordingly
+--- This is now a simple wrapper that delegates to the API layer
+--- The API layer owns the synchronization logic to avoid circular dependencies
 ---@param bufnr number Buffer number
----@param bookmarks table Array of bookmarks for the buffer
-function M.update_bookmark_signs(bufnr, bookmarks)
+function M.update_bookmark_signs(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
 
-  -- Get buffer filepath for API calls (normalized)
-  local filepath = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(bufnr), ":p")
-  if filepath == "" then
-    return
-  end
-
+  -- Delegate to API layer for synchronization
   local api = require('haunt.api')
-
-  for _, bookmark in ipairs(bookmarks) do
-    if bookmark.extmark_id then
-      -- Get current extmark position using existing function
-      local current_line = M.get_extmark_line(bufnr, bookmark.extmark_id)
-
-      if current_line then
-        -- Update sign if line changed
-        if current_line ~= bookmark.line then
-          -- Remove old sign
-          M.unplace_sign(bufnr, bookmark.extmark_id)
-
-          -- Place new sign at current position
-          M.place_sign(bufnr, current_line, bookmark.extmark_id)
-
-          -- Update bookmark line reference via API (not direct mutation)
-          api.update_bookmark_line(filepath, bookmark.line, current_line)
-        end
-      end
-    end
-  end
+  api.sync_extmark_positions(bufnr)
 end
 
 --- Get bookmarks for a specific buffer
@@ -355,8 +338,7 @@ local function debounced_update(bufnr)
     end
 
     -- Update signs
-    local bookmarks = get_buffer_bookmarks(bufnr)
-    M.update_bookmark_signs(bufnr, bookmarks)
+    M.update_bookmark_signs(bufnr)
   end))
 end
 

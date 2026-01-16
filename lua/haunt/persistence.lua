@@ -203,12 +203,24 @@ end
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
 --- @param note? string Optional annotation text
---- @return Bookmark bookmark A new bookmark table
+--- @return Bookmark|nil bookmark A new bookmark table, or nil if validation fails
+--- @return string|nil error_msg Error message if validation fails
 function M.create_bookmark(file, line, note)
   -- Validate inputs
-  assert(type(file) == "string" and file ~= "", "file must be a non-empty string")
-  assert(type(line) == "number" and line >= 1, "line must be a positive number")
-  assert(note == nil or type(note) == "string", "note must be nil or a string")
+  if type(file) ~= "string" or file == "" then
+    vim.notify("haunt.nvim: create_bookmark: file must be a non-empty string", vim.log.levels.ERROR)
+    return nil, "file must be a non-empty string"
+  end
+
+  if type(line) ~= "number" or line < 1 then
+    vim.notify("haunt.nvim: create_bookmark: line must be a positive number", vim.log.levels.ERROR)
+    return nil, "line must be a positive number"
+  end
+
+  if note ~= nil and type(note) ~= "string" then
+    vim.notify("haunt.nvim: create_bookmark: note must be nil or a string", vim.log.levels.ERROR)
+    return nil, "note must be nil or a string"
+  end
 
   -- Generate unique ID using SHA256 hash of file + line + timestamp
   local timestamp = tostring(vim.loop.hrtime())

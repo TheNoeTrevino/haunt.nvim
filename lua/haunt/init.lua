@@ -88,6 +88,13 @@ function M.setup_autocmds()
     group = augroup,
     pattern = "*",
     callback = function()
+      -- Cancel and clean up any pending debounce timer
+      if save_timer then
+        save_timer:stop()
+        save_timer:close()
+        save_timer = nil
+      end
+
       save_all_bookmarks()
     end,
     desc = "Auto-save all bookmarks before Vim exits",
@@ -204,6 +211,12 @@ function M.get_config()
     return vim.deepcopy(DEFAULT_CONFIG)
   end
   return vim.deepcopy(config)
+end
+
+--- Check if setup has been called
+---@return boolean True if setup was called, false otherwise
+function M.is_setup()
+  return config ~= nil
 end
 
 return M

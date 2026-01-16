@@ -37,6 +37,36 @@ local function ensure_modules()
   end
 end
 
+--- Execute a callback with buffer context temporarily switched
+--- Switches to the target buffer, sets cursor position, executes callback, then restores
+---@param bufnr number Target buffer number
+---@param line number Line number to set cursor to
+---@param callback function Function to execute in the target buffer context
+---@return any The return value of the callback
+local function with_buffer_context(bufnr, line, callback)
+  -- Save current buffer and window
+  local current_bufnr = vim.api.nvim_get_current_buf()
+  local current_win = vim.api.nvim_get_current_win()
+  local cursor_saved = vim.api.nvim_win_get_cursor(current_win)
+
+  -- Temporarily switch to the target buffer
+  vim.api.nvim_set_current_buf(bufnr)
+
+  -- Move cursor to the bookmark line
+  vim.api.nvim_win_set_cursor(current_win, { line, 0 })
+
+  -- Execute the callback
+  local result = callback()
+
+  -- Restore cursor and buffer
+  vim.api.nvim_set_current_buf(current_bufnr)
+  if vim.api.nvim_buf_is_valid(current_bufnr) then
+    vim.api.nvim_win_set_cursor(current_win, cursor_saved)
+  end
+
+  return result
+end
+
 --- Open the bookmark picker using Snacks.nvim
 --- Displays all bookmarks with actions to open, delete, or edit annotations
 ---@return nil
@@ -158,25 +188,10 @@ function M.show()
           vim.fn.bufload(bufnr)
         end
 
-        -- Save current buffer and window
-        local current_bufnr = vim.api.nvim_get_current_buf()
-        local current_win = vim.api.nvim_get_current_win()
-
-        -- Temporarily switch to the target buffer
-        vim.api.nvim_set_current_buf(bufnr)
-
-        -- Move cursor to the bookmark line
-        local cursor_saved = vim.api.nvim_win_get_cursor(current_win)
-        vim.api.nvim_win_set_cursor(current_win, { item.line, 0 })
-
-        -- Use the API's toggle function to remove the bookmark
-        local success = api.toggle()
-
-        -- Restore cursor and buffer
-        vim.api.nvim_set_current_buf(current_bufnr)
-        if vim.api.nvim_buf_is_valid(current_bufnr) then
-          vim.api.nvim_win_set_cursor(current_win, cursor_saved)
-        end
+        -- Use helper to execute toggle in the buffer context
+        local success = with_buffer_context(bufnr, item.line, function()
+          return api.toggle()
+        end)
 
         if success then
           -- Refresh the picker to show updated list
@@ -241,25 +256,10 @@ function M.show()
           vim.fn.bufload(bufnr)
         end
 
-        -- Save current buffer and window
-        local current_bufnr = vim.api.nvim_get_current_buf()
-        local current_win = vim.api.nvim_get_current_win()
-
-        -- Temporarily switch to the target buffer
-        vim.api.nvim_set_current_buf(bufnr)
-
-        -- Move cursor to the bookmark line
-        local cursor_saved = vim.api.nvim_win_get_cursor(current_win)
-        vim.api.nvim_win_set_cursor(current_win, { item.line, 0 })
-
-        -- Use the API's annotate function with the provided text
-        api.annotate(annotation)
-
-        -- Restore cursor and buffer
-        vim.api.nvim_set_current_buf(current_bufnr)
-        if vim.api.nvim_buf_is_valid(current_bufnr) then
-          vim.api.nvim_win_set_cursor(current_win, cursor_saved)
-        end
+        -- Use helper to execute annotate in the buffer context
+        with_buffer_context(bufnr, item.line, function()
+          api.annotate(annotation)
+        end)
 
         -- Reopen the picker with updated data
         M.show()
