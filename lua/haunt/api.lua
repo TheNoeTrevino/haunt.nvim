@@ -9,7 +9,8 @@
 --- creating, navigating, annotating, and deleting bookmarks.
 
 ---@class ApiModule
----@field toggle fun(): boolean
+---@field toggle_annotation fun(): boolean
+---@field toggle fun(): boolean @deprecated Use toggle_annotation instead
 ---@field toggle_all_lines fun(): boolean
 ---@field are_annotations_visible fun(): boolean
 ---@field delete fun(): boolean
@@ -246,7 +247,7 @@ local function validate_buffer_for_bookmarks(bufnr)
 end
 
 --- Create a bookmark with visual elements and persist it
---- This is a helper function to avoid code duplication between toggle() and annotate()
+--- This is a helper function to avoid code duplication between toggle_annotation() and annotate()
 ---@param bufnr number Buffer number
 ---@param filepath string Normalized absolute file path
 ---@param line number 1-based line number
@@ -374,9 +375,9 @@ end
 ---@return boolean success True if toggled successfully
 ---
 ---@usage >lua
----   require('haunt.api').toggle()
+---   require('haunt.api').toggle_annotation()
 --- <
-function M.toggle()
+function M.toggle_annotation()
 	ensure_loaded()
 	ensure_modules()
 
@@ -421,6 +422,16 @@ function M.toggle()
 	end
 
 	return true
+end
+
+--- @deprecated Use toggle_annotation() instead
+--- Deprecated alias for toggle_annotation() - maintained for backward compatibility
+function M.toggle()
+	vim.notify_once(
+		"haunt.nvim: toggle() is deprecated, use toggle_annotation() instead",
+		vim.log.levels.WARN
+	)
+	return M.toggle_annotation()
 end
 
 --- Toggle visibility of ALL annotations across ALL bookmarks.

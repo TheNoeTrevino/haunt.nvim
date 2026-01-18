@@ -41,7 +41,7 @@
 ---   require('haunt.api').prev()
 ---
 ---   -- Toggle annotation visibility
----   require('haunt.api').toggle()
+---   require('haunt.api').toggle_annotation()
 ---
 ---   -- Delete bookmark at current line
 ---   require('haunt.api').delete()
@@ -65,7 +65,7 @@
 ---                                                             *haunt-keymaps*
 --- >lua
 ---   -- Toggle bookmark annotation visibility
----   vim.keymap.set('n', 'mm', function() require('haunt.api').toggle() end,
+---   vim.keymap.set('n', 'mm', function() require('haunt.api').toggle_annotation() end,
 ---     { desc = "Toggle bookmark annotation" })
 ---
 ---   -- Navigate bookmarks

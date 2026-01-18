@@ -37,7 +37,7 @@ describe("haunt.api", function()
 		api._reset_for_testing() -- Clear any persisted bookmarks
 	end)
 
-	describe("toggle", function()
+	describe("toggle_annotation", function()
 		local bufnr, test_file
 
 		before_each(function()
@@ -51,7 +51,7 @@ describe("haunt.api", function()
 		it("returns false when no bookmark exists at line", function()
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
 
-			local ok = api.toggle()
+			local ok = api.toggle_annotation()
 			assert.is_false(ok)
 
 			local bookmarks = api.get_bookmarks()
@@ -67,7 +67,7 @@ describe("haunt.api", function()
 			assert.is_not_nil(initial_extmark_id)
 
 			-- Toggle off
-			api.toggle()
+			api.toggle_annotation()
 			bookmarks = api.get_bookmarks()
 			assert.is_nil(bookmarks[1].annotation_extmark_id)
 		end)
@@ -77,9 +77,9 @@ describe("haunt.api", function()
 			api.annotate("Test note")
 
 			-- Toggle off
-			api.toggle()
+			api.toggle_annotation()
 			-- Toggle on
-			api.toggle()
+			api.toggle_annotation()
 
 			local bookmarks = api.get_bookmarks()
 			assert.is_not_nil(bookmarks[1].annotation_extmark_id)
@@ -90,10 +90,10 @@ describe("haunt.api", function()
 			api.annotate("Test note")
 
 			-- Toggle off and on multiple times
-			api.toggle()
-			api.toggle()
-			api.toggle()
-			api.toggle()
+			api.toggle_annotation()
+			api.toggle_annotation()
+			api.toggle_annotation()
+			api.toggle_annotation()
 
 			-- Count extmarks in buffer at line 1
 			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), { 0, 0 }, { 0, -1 }, {})
@@ -191,7 +191,7 @@ describe("haunt.api", function()
 
 			-- Toggle one individual bookmark on
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.toggle()
+			api.toggle_annotation()
 
 			-- Toggle all on
 			api.toggle_all_lines()

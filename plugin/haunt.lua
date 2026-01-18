@@ -26,7 +26,7 @@ vim.g.loaded_haunt = 1
 
 -- Create lightweight command wrappers that lazy-load on use
 local commands = {
-  HauntToggle = { fn = 'toggle', desc = 'Toggle bookmark annotation visibility' },
+  HauntToggle = { fn = 'toggle_annotation', desc = 'Toggle bookmark annotation visibility' },
   HauntAnnotate = { fn = 'annotate', desc = 'Add/edit annotation', has_args = true },
   HauntClear = { fn = 'clear', desc = 'Clear bookmarks in current file' },
   HauntClearAll = { fn = 'clear_all', desc = 'Clear all bookmarks' },
