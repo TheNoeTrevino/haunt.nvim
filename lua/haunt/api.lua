@@ -478,15 +478,24 @@ function M.toggle_all_lines()
 
 		-- actual toggling logic
 		if _annotations_visible then
-			-- hide, then show. a little hacky, but ensures proper placement, and no duplicates
-			-- FIXME: is there a better way to do this?:
+			-- Only update annotation if it doesn't exist or is at wrong position
+			local needs_update = true
 			if bookmark.annotation_extmark_id then
-				display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
+				local annotation_line = display.get_extmark_line(bufnr, bookmark.annotation_extmark_id)
+				-- If annotation is already at the correct position, no update needed
+				if annotation_line == current_line then
+					needs_update = false
+				else
+					-- Position changed, hide old annotation
+					display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
+				end
 			end
 
-			local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
-			if ok then
-				bookmark.annotation_extmark_id = extmark_id
+			if needs_update then
+				local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
+				if ok then
+					bookmark.annotation_extmark_id = extmark_id
+				end
 			end
 		else
 			if bookmark.annotation_extmark_id then
