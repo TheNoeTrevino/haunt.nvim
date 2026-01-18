@@ -380,14 +380,37 @@ function M.toggle_all_lines()
 			goto continue
 		end
 
+		-- get line from extmark, persistance can become ood
+		local current_line = nil
+		if bookmark.extmark_id then
+			current_line = display.get_extmark_line(bufnr, bookmark.extmark_id)
+		end
+		if not current_line then -- fallback
+			current_line = bookmark.line
+		end
+
+		-- if line is gone, move on
+		local line_count = vim.api.nvim_buf_line_count(bufnr)
+		if current_line < 1 or current_line > line_count then
+			goto continue
+		end
+
 		-- actual toggling logic
 		if _annotations_visible then
-			bookmark.annotation_extmark_id = display.show_annotation(bufnr, bookmark.line, bookmark.note)
-		else
+			-- hide, then show. a little hacky, but ensures proper placement, and no duplicates
 			if bookmark.annotation_extmark_id then
 				display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
 			end
-			bookmark.annotation_extmark_id = nil
+
+			local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
+			if ok then
+				bookmark.annotation_extmark_id = extmark_id
+			end
+		else
+			if bookmark.annotation_extmark_id then
+				display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
+				bookmark.annotation_extmark_id = nil
+			end
 		end
 
 		::continue::

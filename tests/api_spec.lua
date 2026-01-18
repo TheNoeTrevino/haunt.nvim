@@ -57,6 +57,193 @@ describe("haunt.api", function()
 			local bookmarks = api.get_bookmarks()
 			assert.are.equal(0, #bookmarks)
 		end)
+
+		it("hides annotation when toggled", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test note")
+
+			local bookmarks = api.get_bookmarks()
+			local initial_extmark_id = bookmarks[1].annotation_extmark_id
+			assert.is_not_nil(initial_extmark_id)
+
+			-- Toggle off
+			api.toggle()
+			bookmarks = api.get_bookmarks()
+			assert.is_nil(bookmarks[1].annotation_extmark_id)
+		end)
+
+		it("shows annotation when toggled back", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test note")
+
+			-- Toggle off
+			api.toggle()
+			-- Toggle on
+			api.toggle()
+
+			local bookmarks = api.get_bookmarks()
+			assert.is_not_nil(bookmarks[1].annotation_extmark_id)
+		end)
+
+		it("does not create duplicate annotations when toggled multiple times", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test note")
+
+			-- Toggle off and on multiple times
+			api.toggle()
+			api.toggle()
+			api.toggle()
+			api.toggle()
+
+			-- Count extmarks in buffer at line 1
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), { 0, 0 }, { 0, -1 }, {})
+			local annotation_count = 0
+			for _, extmark in ipairs(extmarks) do
+				local details =
+					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
+				if details and details[3] and details[3].virt_text then
+					annotation_count = annotation_count + 1
+				end
+			end
+			assert.are.equal(1, annotation_count)
+		end)
+	end)
+
+	describe("toggle_all_lines", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3" })
+			-- Create bookmarks with annotations
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Note 1")
+			vim.api.nvim_win_set_cursor(0, { 2, 0 })
+			api.annotate("Note 2")
+			vim.api.nvim_win_set_cursor(0, { 3, 0 })
+			api.annotate("Note 3")
+		end)
+
+		after_each(function()
+			cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("hides all annotations when toggled off", function()
+			local visible = api.toggle_all_lines()
+			assert.is_false(visible)
+
+			local bookmarks = api.get_bookmarks()
+			for _, bookmark in ipairs(bookmarks) do
+				assert.is_nil(bookmark.annotation_extmark_id)
+			end
+		end)
+
+		it("shows all annotations when toggled back on", function()
+			-- Toggle off
+			api.toggle_all_lines()
+			-- Toggle on
+			local visible = api.toggle_all_lines()
+			assert.is_true(visible)
+
+			local bookmarks = api.get_bookmarks()
+			for _, bookmark in ipairs(bookmarks) do
+				assert.is_not_nil(bookmark.annotation_extmark_id)
+			end
+		end)
+
+		it("works correctly when toggled multiple times", function()
+			-- Toggle off, on, off, on
+			api.toggle_all_lines() -- off
+			api.toggle_all_lines() -- on
+			api.toggle_all_lines() -- off
+			local visible = api.toggle_all_lines() -- on
+			assert.is_true(visible)
+
+			local bookmarks = api.get_bookmarks()
+			for _, bookmark in ipairs(bookmarks) do
+				assert.is_not_nil(bookmark.annotation_extmark_id)
+			end
+		end)
+
+		it("does not create duplicate annotations when toggled repeatedly", function()
+			-- Toggle multiple times
+			api.toggle_all_lines() -- off
+			api.toggle_all_lines() -- on
+			api.toggle_all_lines() -- off
+			api.toggle_all_lines() -- on
+
+			-- Count extmarks in buffer
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, {})
+			local annotation_count = 0
+			for _, extmark in ipairs(extmarks) do
+				local details =
+					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
+				if details and details[3] and details[3].virt_text then
+					annotation_count = annotation_count + 1
+				end
+			end
+			-- Should have exactly 3 annotations (one per bookmark)
+			assert.are.equal(3, annotation_count)
+		end)
+
+		it("handles interaction with individual toggle correctly", function()
+			-- Toggle all off
+			api.toggle_all_lines()
+
+			-- Toggle one individual bookmark on
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.toggle()
+
+			-- Toggle all on
+			api.toggle_all_lines()
+
+			-- Count extmarks to ensure no duplicates
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, {})
+			local annotation_count = 0
+			for _, extmark in ipairs(extmarks) do
+				local details =
+					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
+				if details and details[3] and details[3].virt_text then
+					annotation_count = annotation_count + 1
+				end
+			end
+			-- Should have exactly 3 annotations (one per bookmark), no duplicates
+			assert.are.equal(3, annotation_count)
+		end)
+
+		it("uses current extmark position not stored line when buffer is modified", function()
+			-- Add a line at the beginning
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "New Line 0" })
+
+			-- All bookmarks should have moved down by 1
+			-- Toggle should still work without errors
+			local ok, result = pcall(api.toggle_all_lines)
+			assert.is_true(ok)
+			assert.is_false(result) -- toggled off
+
+			-- Toggle back on
+			ok, result = pcall(api.toggle_all_lines)
+			assert.is_true(ok)
+			assert.is_true(result) -- toggled on
+
+			-- Verify no errors and annotations are at correct positions
+			local bookmarks = api.get_bookmarks()
+			for _, bookmark in ipairs(bookmarks) do
+				assert.is_not_nil(bookmark.annotation_extmark_id)
+			end
+		end)
+
+		it("handles deleted lines gracefully", function()
+			-- Delete line 2
+			vim.api.nvim_buf_set_lines(bufnr, 1, 2, false, {})
+
+			-- Toggle should not error even though one bookmark might be invalid
+			local ok, result = pcall(api.toggle_all_lines)
+			assert.is_true(ok)
+
+			-- Should still have bookmarks
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(3, #bookmarks)
+		end)
 	end)
 
 	describe("annotate", function()

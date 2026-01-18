@@ -114,6 +114,20 @@ end
 function M.show_annotation(bufnr, line, note)
 	ensure_highlights_defined()
 
+	if not is_valid_buffer(bufnr) then
+		vim.notify("haunt.nvim: show_annotation: invalid buffer", vim.log.levels.WARN)
+		return nil
+	end
+
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
+	if line < 1 or line > line_count then
+		vim.notify(
+			string.format("haunt.nvim: Cannot show annotation at line %d (buffer has %d lines)", line, line_count),
+			vim.log.levels.WARN
+		)
+		return nil
+	end
+
 	local cfg = config.get()
 	-- some guards
 	local hl_group = cfg.virt_text_hl or "HauntAnnotation"
