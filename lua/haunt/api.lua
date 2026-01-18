@@ -398,6 +398,7 @@ function M.toggle_all_lines()
 		-- actual toggling logic
 		if _annotations_visible then
 			-- hide, then show. a little hacky, but ensures proper placement, and no duplicates
+			-- FIXME: is there a better way to do this?:
 			if bookmark.annotation_extmark_id then
 				display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
 			end
