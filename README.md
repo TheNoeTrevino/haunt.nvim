@@ -25,21 +25,28 @@ TODO: add a little photo of a ghost and a programmer
 
 ## Installation
 
+TODO: users should be able to toggle notification. add a 'notify' option to config.
+this can take in a boolean, or a logging level. then, in the program, we can use
+a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
 ``` lua
 return {
   "TheNoeTrevino/haunt.nvim",
   opts = {
+    -- default config: change to your liking, or remove it to use defaults
+    ---@class HauntConfig
+    sign = "󱙝",
+    sign_hl = "DiagnosticInfo",
+    virt_text_hl = "HauntAnnotation",
+    annotation_prefix = " 󰆉 ",
+    line_hl = nil,
+    virt_text_pos = "eol",
+    data_dir = nil,
     picker_keys = {
-      delete = {
-        key = "d",
-        mode = { "n" },
-      },
-      edit_annotation = {
-        key = "a",
-        mode = { "n" },
-      },
+      delete = { key = "d", mode = { "n" } },
+      edit_annotation = { key = "a", mode = { "n" } },
     },
   },
+  -- recommended keymaps, with a helpful prefix alias
   init = function()
     local haunt = require("haunt.api")
     local haunt_picker = require("haunt.picker")
@@ -86,7 +93,7 @@ return {
 
 ## Usage
 
-By default, haunt.nvim provides _no default keymaps_. You will have to set them up yourself. See the installation section for an example.
+By default, haunt.nvim provides ***no default keymaps***. You will have to set them up yourself. See the installation section for an example.
 The installation section includes some recommended keymaps to get you started.
 You can also just use the user commands, which we will talk about later.
 
