@@ -1,55 +1,30 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt.api", function()
 	local api
 	local display
 
-	-- Helper to create a test buffer
-	local function create_test_buffer(lines)
-		local bufnr = vim.api.nvim_create_buf(false, false)
-		local test_file = vim.fn.tempname() .. ".lua"
-		vim.api.nvim_buf_set_name(bufnr, test_file)
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines or { "Line 1", "Line 2", "Line 3" })
-		vim.api.nvim_set_current_buf(bufnr)
-		return bufnr, test_file
-	end
-
-	-- Helper to cleanup buffer
-	local function cleanup_buffer(bufnr, test_file)
-		if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-			vim.api.nvim_buf_delete(bufnr, { force = true })
-		end
-		if test_file then
-			vim.fn.delete(test_file)
-		end
-	end
-
 	before_each(function()
-		package.loaded["haunt.api"] = nil
-		package.loaded["haunt.display"] = nil
-		package.loaded["haunt.persistence"] = nil
-		package.loaded["haunt.config"] = nil
-		package.loaded["haunt.store"] = nil
-		package.loaded["haunt.utils"] = nil
-		package.loaded["haunt.navigation"] = nil
-		package.loaded["haunt.restoration"] = nil
+		helpers.reset_modules()
 		api = require("haunt.api")
 		display = require("haunt.display")
 		local config = require("haunt.config")
 		config.setup()
-		api._reset_for_testing() -- Clear any persisted bookmarks
+		api._reset_for_testing()
 	end)
 
 	describe("toggle_annotation", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("returns false when no bookmark exists at line", function()
@@ -99,16 +74,7 @@ describe("haunt.api", function()
 			api.toggle_annotation()
 			api.toggle_annotation()
 
-			-- Count extmarks in buffer at line 1
-			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), { 0, 0 }, { 0, -1 }, {})
-			local annotation_count = 0
-			for _, extmark in ipairs(extmarks) do
-				local details =
-					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
-				if details and details[3] and details[3].virt_text then
-					annotation_count = annotation_count + 1
-				end
-			end
+			local annotation_count = helpers.count_annotation_extmarks(bufnr, display.get_namespace())
 			assert.are.equal(1, annotation_count)
 		end)
 	end)
@@ -117,7 +83,7 @@ describe("haunt.api", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3" })
+			bufnr, test_file = helpers.create_test_buffer({ "Line 1", "Line 2", "Line 3" })
 			-- Create bookmarks with annotations
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Note 1")
@@ -128,7 +94,7 @@ describe("haunt.api", function()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("hides all annotations when toggled off", function()
@@ -175,17 +141,8 @@ describe("haunt.api", function()
 			api.toggle_all_lines() -- off
 			api.toggle_all_lines() -- on
 
-			-- Count extmarks in buffer
-			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, {})
-			local annotation_count = 0
-			for _, extmark in ipairs(extmarks) do
-				local details =
-					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
-				if details and details[3] and details[3].virt_text then
-					annotation_count = annotation_count + 1
-				end
-			end
 			-- Should have exactly 3 annotations (one per bookmark)
+			local annotation_count = helpers.count_annotation_extmarks(bufnr, display.get_namespace())
 			assert.are.equal(3, annotation_count)
 		end)
 
@@ -200,17 +157,8 @@ describe("haunt.api", function()
 			-- Toggle all on
 			api.toggle_all_lines()
 
-			-- Count extmarks to ensure no duplicates
-			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, {})
-			local annotation_count = 0
-			for _, extmark in ipairs(extmarks) do
-				local details =
-					vim.api.nvim_buf_get_extmark_by_id(bufnr, display.get_namespace(), extmark[1], { details = true })
-				if details and details[3] and details[3].virt_text then
-					annotation_count = annotation_count + 1
-				end
-			end
 			-- Should have exactly 3 annotations (one per bookmark), no duplicates
+			local annotation_count = helpers.count_annotation_extmarks(bufnr, display.get_namespace())
 			assert.are.equal(3, annotation_count)
 		end)
 
@@ -255,13 +203,13 @@ describe("haunt.api", function()
 		local original_input
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			original_input = vim.fn.input
 		end)
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("creates bookmark with annotation", function()
@@ -306,17 +254,29 @@ describe("haunt.api", function()
 			assert.are.equal(1, #bookmarks)
 			assert.are.equal("Direct annotation", bookmarks[1].note)
 		end)
+
+		it("returns false on empty input (cancel)", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			vim.fn.input = function()
+				return ""
+			end
+
+			local result = api.annotate()
+
+			assert.is_false(result)
+			assert.are.equal(0, #api.get_bookmarks())
+		end)
 	end)
 
 	describe("delete", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("removes existing bookmark", function()
@@ -339,78 +299,80 @@ describe("haunt.api", function()
 			local ok = api.delete()
 			assert.is_false(ok)
 		end)
+
+		it("cleans up extmarks and signs", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			api.delete()
+
+			-- Check no extmarks remain
+			local ns = display.get_namespace()
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, ns, 0, -1, {})
+			assert.are.equal(0, #extmarks)
+
+			-- Check no signs remain
+			local signs = vim.fn.sign_getplaced(bufnr, { group = "haunt_signs" })
+			assert.are.equal(0, #signs[1].signs)
+		end)
 	end)
 
-	describe("navigation", function()
+	describe("delete_by_id", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3", "Line 4", "Line 5" })
-
-			-- Create bookmarks at lines 1, 3, 5
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("Bookmark 1")
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("Bookmark 3")
-			vim.api.nvim_win_set_cursor(0, { 5, 0 })
-			api.annotate("Bookmark 5")
+			bufnr, test_file = helpers.create_test_buffer()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
-		local next_cases = {
-			{ from = 1, expected = 3, desc = "line 1 to line 3" },
-			{ from = 3, expected = 5, desc = "line 3 to line 5" },
-			{ from = 5, expected = 1, desc = "line 5 wraps to line 1" },
-			{ from = 2, expected = 3, desc = "line 2 (no bookmark) to line 3" },
-		}
+		it("deletes bookmark by ID", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("First")
+			vim.api.nvim_win_set_cursor(0, { 2, 0 })
+			api.annotate("Second")
 
-		for _, case in ipairs(next_cases) do
-			it("next jumps from " .. case.desc, function()
-				vim.api.nvim_win_set_cursor(0, { case.from, 0 })
-				api.next()
-				local pos = vim.api.nvim_win_get_cursor(0)
-				assert.are.equal(case.expected, pos[1])
-			end)
-		end
+			local bookmarks = api.get_bookmarks()
+			local first_id = bookmarks[1].id
 
-		local prev_cases = {
-			{ from = 5, expected = 3, desc = "line 5 to line 3" },
-			{ from = 3, expected = 1, desc = "line 3 to line 1" },
-			{ from = 1, expected = 5, desc = "line 1 wraps to line 5" },
-			{ from = 4, expected = 3, desc = "line 4 (no bookmark) to line 3" },
-		}
+			local ok = api.delete_by_id(first_id)
 
-		for _, case in ipairs(prev_cases) do
-			it("prev jumps from " .. case.desc, function()
-				vim.api.nvim_win_set_cursor(0, { case.from, 0 })
-				api.prev()
-				local pos = vim.api.nvim_win_get_cursor(0)
-				assert.are.equal(case.expected, pos[1])
-			end)
-		end
+			assert.is_true(ok)
+			assert.are.equal(1, #api.get_bookmarks())
+			assert.are.equal("Second", api.get_bookmarks()[1].note)
+		end)
+
+		it("returns false for non-existent ID", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			local ok = api.delete_by_id("nonexistent-id")
+
+			assert.is_false(ok)
+			assert.are.equal(1, #api.get_bookmarks())
+		end)
 	end)
 
 	describe("clear", function()
 		local bufnr1, test_file1, bufnr2, test_file2
 
 		before_each(function()
-			bufnr1, test_file1 = create_test_buffer({ "File1 Line 1", "File1 Line 2" })
+			bufnr1, test_file1 = helpers.create_test_buffer({ "File1 Line 1", "File1 Line 2" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("File1 Bookmark 1")
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
 			api.annotate("File1 Bookmark 2")
 
-			bufnr2, test_file2 = create_test_buffer({ "File2 Line 1" })
+			bufnr2, test_file2 = helpers.create_test_buffer({ "File2 Line 1" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("File2 Bookmark")
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr1, test_file1)
-			cleanup_buffer(bufnr2, test_file2)
+			helpers.cleanup_buffer(bufnr1, test_file1)
+			helpers.cleanup_buffer(bufnr2, test_file2)
 		end)
 
 		it("clears only current file bookmarks", function()
@@ -424,6 +386,16 @@ describe("haunt.api", function()
 			local after = api.get_bookmarks()
 			assert.are.equal(1, #after)
 		end)
+
+		it("returns true when no bookmarks in file", function()
+			-- Switch to file1 and clear
+			vim.api.nvim_set_current_buf(bufnr1)
+			api.clear()
+
+			-- Clear again (no bookmarks)
+			local ok = api.clear()
+			assert.is_true(ok)
+		end)
 	end)
 
 	describe("clear_all", function()
@@ -431,7 +403,7 @@ describe("haunt.api", function()
 		local original_confirm
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Bookmark 1")
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
@@ -442,7 +414,7 @@ describe("haunt.api", function()
 
 		after_each(function()
 			vim.fn.confirm = original_confirm
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("clears all bookmarks when confirmed", function()
@@ -474,229 +446,80 @@ describe("haunt.api", function()
 			local after = api.get_bookmarks()
 			assert.are.equal(2, #after)
 		end)
-	end)
 
-	describe("save / load", function()
-		local bufnr, test_file
-
-		before_each(function()
-			bufnr, test_file = create_test_buffer()
-		end)
-
-		after_each(function()
-			cleanup_buffer(bufnr, test_file)
-		end)
-
-		it("persists bookmarks across reload", function()
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("Persisted bookmark")
-
-			local save_ok = api.save()
-			assert.is_true(save_ok)
-
-			-- Reload module
-			package.loaded["haunt.api"] = nil
-			local api2 = require("haunt.api")
-
-			local load_ok = api2.load()
-			assert.is_true(load_ok)
-
-			local bookmarks = api2.get_bookmarks()
-			assert.are.equal(1, #bookmarks)
-			assert.are.equal(1, bookmarks[1].line)
-		end)
-	end)
-
-	describe("file-based indexing", function()
-		local bufnr, test_file
-
-		before_each(function()
-			bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3", "Line 4", "Line 5" })
-		end)
-
-		after_each(function()
-			cleanup_buffer(bufnr, test_file)
-		end)
-
-		it("maintains sorted order when adding bookmarks out of order", function()
-			-- Add bookmarks in reverse order
-			vim.api.nvim_win_set_cursor(0, { 5, 0 })
-			api.annotate("Fifth")
-
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("Third")
-
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("First")
-
-			-- Navigate should work in sorted order
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(3, cursor[1]) -- Should jump to line 3, not line 5
-
-			api.next()
-			cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(5, cursor[1]) -- Should jump to line 5
-		end)
-
-		it("removes bookmark from index when deleted", function()
-			-- Add three bookmarks
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("First")
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("Third")
-			vim.api.nvim_win_set_cursor(0, { 5, 0 })
-			api.annotate("Fifth")
-
-			-- Delete middle bookmark
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.delete()
-
-			-- Navigate should skip deleted bookmark
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(5, cursor[1]) -- Should jump directly from line 1 to line 5
-		end)
-
-		it("clears file from index when all bookmarks removed", function()
-			-- Add bookmarks
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("First")
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("Third")
-
-			-- Clear current file
-			api.clear()
-
-			-- Verify no bookmarks remain
-			local bookmarks = api.get_bookmarks()
-			assert.are.equal(0, #bookmarks)
-		end)
-
-		it("rebuilds index when loading from persistence", function()
-			-- Create bookmarks
-			vim.api.nvim_win_set_cursor(0, { 5, 0 })
-			api.annotate("Fifth")
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api.annotate("Second")
-			vim.api.nvim_win_set_cursor(0, { 4, 0 })
-			api.annotate("Fourth")
-
-			-- Save
-			api.save()
-
-			-- Reload module
-			package.loaded["haunt.api"] = nil
-			local api2 = require("haunt.api")
-			api2.load()
-
-			-- Navigation should work correctly (verifying index was rebuilt)
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api2.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(4, cursor[1]) -- Should jump to line 4 (sorted order)
-		end)
-
-		it("handles multiple files independently in index", function()
-			-- Create first file bookmarks
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("File1 Line1")
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("File1 Line3")
-
-			-- Create second file
-			local bufnr2, test_file2 = create_test_buffer({ "A", "B", "C", "D" })
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api.annotate("File2 Line2")
-			vim.api.nvim_win_set_cursor(0, { 4, 0 })
-			api.annotate("File2 Line4")
-
-			-- Navigate in second file
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(4, cursor[1]) -- Should stay within file 2
-
-			-- Switch back to first file and verify navigation
-			vim.api.nvim_set_current_buf(bufnr)
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.next()
-			cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(3, cursor[1]) -- Should navigate within file 1
-
-			cleanup_buffer(bufnr2, test_file2)
-		end)
-
-		it("clears entire index when clear_all is called", function()
-			-- Add bookmarks to current file
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("First")
-
-			-- Create second file with bookmarks
-			local bufnr2, test_file2 = create_test_buffer({ "A", "B" })
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("File2")
-
-			-- Clear all (mock confirm to return 1 for "Yes")
-			local original_confirm = vim.fn.confirm
+		it("cleans up all visual elements", function()
 			vim.fn.confirm = function()
 				return 1
 			end
 
 			api.clear_all()
 
-			-- Restore original confirm
-			vim.fn.confirm = original_confirm
+			-- Check no extmarks remain
+			local ns = display.get_namespace()
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, ns, 0, -1, {})
+			assert.are.equal(0, #extmarks)
 
-			-- Verify all bookmarks cleared
+			-- Check no signs remain
+			local signs = vim.fn.sign_getplaced(bufnr, { group = "haunt_signs" })
+			assert.are.equal(0, #signs[1].signs)
+		end)
+	end)
+
+	describe("are_annotations_visible", function()
+		it("returns true by default", function()
+			assert.is_true(api.are_annotations_visible())
+		end)
+
+		it("returns false after toggle_all_lines hides annotations", function()
+			local bufnr, test_file = helpers.create_test_buffer()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			api.toggle_all_lines()
+
+			assert.is_false(api.are_annotations_visible())
+
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+	end)
+
+	describe("get_bookmarks / has_bookmarks", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer()
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("returns empty array when no bookmarks", function()
 			local bookmarks = api.get_bookmarks()
+			assert.is_table(bookmarks)
 			assert.are.equal(0, #bookmarks)
-
-			cleanup_buffer(bufnr2, test_file2)
 		end)
 
-		it("maintains index when delete_by_id is called", function()
-			-- Add three bookmarks
+		it("has_bookmarks returns false when empty", function()
+			assert.is_false(api.has_bookmarks())
+		end)
+
+		it("has_bookmarks returns true when bookmarks exist", function()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.annotate("First")
-			vim.api.nvim_win_set_cursor(0, { 3, 0 })
-			api.annotate("Third")
-			vim.api.nvim_win_set_cursor(0, { 5, 0 })
-			api.annotate("Fifth")
+			api.annotate("Test")
+
+			assert.is_true(api.has_bookmarks())
+		end)
+
+		it("get_bookmarks returns deep copy", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Original")
 
 			local bookmarks = api.get_bookmarks()
-			local middle_id = bookmarks[2].id
+			bookmarks[1].note = "Modified"
 
-			-- Delete middle bookmark by id
-			api.delete_by_id(middle_id)
-
-			-- Navigate should skip deleted bookmark
-			vim.api.nvim_win_set_cursor(0, { 1, 0 })
-			api.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(5, cursor[1]) -- Should jump from line 1 to line 5
-		end)
-
-		it("handles navigation wrapping with indexed bookmarks", function()
-			-- Add bookmarks
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api.annotate("Second")
-			vim.api.nvim_win_set_cursor(0, { 4, 0 })
-			api.annotate("Fourth")
-
-			-- Start at last bookmark, next should wrap to first
-			vim.api.nvim_win_set_cursor(0, { 4, 0 })
-			api.next()
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(2, cursor[1]) -- Should wrap to line 2
-
-			-- Test prev wrapping
-			vim.api.nvim_win_set_cursor(0, { 2, 0 })
-			api.prev()
-			cursor = vim.api.nvim_win_get_cursor(0)
-			assert.are.equal(4, cursor[1]) -- Should wrap to line 4
+			local bookmarks2 = api.get_bookmarks()
+			assert.are.equal("Original", bookmarks2[1].note)
 		end)
 	end)
 end)
