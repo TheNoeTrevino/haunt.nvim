@@ -1,12 +1,14 @@
-# `haunt.nvim`
+# `haunt.nvim` 👻
 
-Hear the ghosts of where you’ve been...
+![IMG_0236(1)](https://github.com/user-attachments/assets/de341829-817b-4276-8e72-bb6bf61261b1)
 
-Annotate your code base with ghost text, search through the history of your files.
+Hear the ghosts tell you where you were, and why you were there.
 
 Bring back the past with haunt.nvim!
 
-TODO: add a little photo of a ghost and a programmer
+Annotate your codebase with ghost text. Search through the history that _you_ choose.
+
+Keep your mental overhead to a minimum and never repeatedly rummage through your codebase again.
 
 ## Features
 
@@ -14,81 +16,88 @@ TODO: add a little photo of a ghost and a programmer
   * Keep your personal notes in your code without modifying the actual files
 - Git integration
   * annotations are tied to a git branch. Keep different notes for different branches
-- Search through your bookmarks with `snacks.nvim` (Telescope and fzf.lua support coming soon)
-- Send your bookmarks to `sidekick.nvim` so your favorite cli tool can help purge you of your hauntings
+- Jump around using your hauntings
+- Search through your bookmarks with `snacks.nvim` 
+- Use `sidekick.nvim` to send your annotations to your favorite cli tool. Have a robot purge you of your hauntings!
+- Though the examples don't show this, this plugin was deisgned to ease the navigation of massive codebases through semantic markings
+- Super fast, and does its best to have as little computations, and load time, as possible. I get around .6ms ;)
 
 ## Requirements
 
-- what ever neovim version first introduced virtual text, or whatever we use
-- [snacks.nvim](https://github.com/folke/snacks.nvim) for picker integration. _(optional)_
-- [sidekick.nvim](https://github.com/folke/sidekick.nvim) for AI integration (and a cli tool of your choice). _(optional)_
+- Neovim 0.11 - virtual text
+- [snacks.nvim](https://github.com/folke/snacks.nvim) - picker integration. _(optional)_
+- [sidekick.nvim](https://github.com/folke/sidekick.nvim) - 'AI' integration (and a cli tool of your choice). _(optional)_
 
 ## Installation
 
 ``` lua
-local haunt = require("haunt.api")
-local haunt_picker = require("haunt.picker")
 return {
   "TheNoeTrevino/haunt.nvim",
+  -- default config: change to your liking, or remove it to use defaults
+  ---@class HauntConfig
   opts = {
+    sign = "󱙝",
+    sign_hl = "DiagnosticInfo",
+    virt_text_hl = "HauntAnnotation",
+    annotation_prefix = " 󰆉 ",
+    line_hl = nil,
+    virt_text_pos = "eol",
+    data_dir = nil,
     picker_keys = {
-      delete = {
-        key = "d",
-        mode = { "n" },
-      },
-      edit_annotation = {
-        key = "a",
-        mode = { "n" },
-      },
+      delete = { key = "d", mode = { "n" } },
+      edit_annotation = { key = "a", mode = { "n" } },
     },
   },
+  -- recommended keymaps, with a helpful prefix alias
   init = function()
+    local haunt = require("haunt.api")
+    local haunt_picker = require("haunt.picker")
     local map = vim.keymap.set
-    map("n", "mt", function()
+    local prefix = "<leader>h"
+
+    -- annotations
+    map("n", prefix .. "a", function()
+      haunt.annotate()
+    end, { desc = "Annotate" })
+
+    map("n", prefix .. "t", function()
       haunt.toggle_annotation()
     end, { desc = "Toggle annotation" })
 
-    map("n", "mT", function()
+    map("n", prefix .. "T", function()
       haunt.toggle_all_lines()
     end, { desc = "Toggle all annotations" })
 
-    map("n", "md", function()
+    map("n", prefix .. "d", function()
       haunt.delete()
     end, { desc = "Delete bookmark" })
 
-    map("n", "mn", function()
-      haunt.next()
-    end, { desc = "Next bookmark" })
-
-    map("n", "ma", function()
-      haunt.annotate()
-    end, { desc = "Next bookmark" })
-
-    map("n", "ml", function()
-      haunt_picker.show()
-    end, { desc = "Next bookmark" })
+    map("n", prefix .. "C", function()
+      haunt.clear_all()
+    end, { desc = "Delete all bookmarks" })
 
     -- move
-    map("n", "mp", function()
+    map("n", prefix .. "p", function()
       haunt.prev()
     end, { desc = "Previous bookmark" })
 
-    map("n", "ma", function()
-      haunt.annotate()
-    end, { desc = "Annotate bookmark" })
+    map("n", prefix .. "n", function()
+      haunt.next()
+    end, { desc = "Next bookmark" })
 
-    -- clear
-    map("n", "mC", function()
-      haunt.clear_all()
-    end, { desc = "Clear all bookmarks" })
+    -- picker
+    map("n", prefix .. "l", function()
+      haunt_picker.show()
+    end, { desc = "Show Picker" })
   end,
-,
 }
 ```
 
 ## Usage
 
-By default, haunt.nvim provides _no default keymaps_. You will have to set them up yourself. See the installation section for an example.
+https://github.com/user-attachments/assets/717ccc85-a14f-4dff-b496-b448750c33e1
+
+By default, haunt.nvim provides ***no default keymaps***. You will have to set them up yourself. See the installation section for an example.
 The installation section includes some recommended keymaps to get you started.
 You can also just use the user commands, which we will talk about later.
 
@@ -113,7 +122,7 @@ haunt.toggle_all_lines()
 -- Remove all annotations in the workspace. Good for when you finish up a subtask
 haunt.clear_all()
 
--- Delete the current annotation
+-- Delete annotation on the current line
 haunt.delete()
 
 -- Jump to the next/prev annotation in the buffer
@@ -135,15 +144,31 @@ haunt_picker.show()
 haunt_sk.get_locations()
 haunt_sk.get_locations({current_buffer = true})
 ```
-TODO: add youtube video of usage!
+
+Or you can use the user commands: 
+`HauntAnnotate`
+`HauntClear`
+`HauntClearAll`
+`HauntDelete`
+`HauntList`
+`HauntNext`
+`HauntPrev`
+
+It should be pretty obvious what these do.
+
+If you wanna script something with this plugin, take a look at `:h haunt`.
+I tried my best to expose as many useful functions as possible.
 
 ## Integrations 
 
 ### snacks.nvim
 
-Edit and delete annotations from the picker using `snacks.nvim`:
+Search, edit, and delete annotations from the picker using `snacks.nvim`.
 
-TODO: insert gif of this!
+https://github.com/user-attachments/assets/da112d01-b0bc-445d-8d60-edc324c5f31b
+
+You won't need to change anything in your snacks config, but be aware that you can change the mappings. 
+Here is the relevant part of the config: 
 
 ``` lua
 return {
@@ -165,7 +190,11 @@ return {
 
 ### sidekick.nvim
 
-TODO: insert gif of this!
+Send the position of your annotations to your favorite CLI tool through sidekick
+
+https://github.com/user-attachments/assets/390c7301-757c-4248-9623-0300ff872376
+
+Add this to your sidekick configuration:
 
 ``` lua
 
@@ -188,3 +217,48 @@ return {
   }
 }
 ```
+
+### Git
+Keep your annotations scoped to your branches.
+
+https://github.com/user-attachments/assets/1d2b996c-b0be-459c-9ff0-63e7a1ebb936
+
+## Why?
+
+I have tried all the bookmarking plugins out there, and none of them really fit my workflow.
+The specific issues I kept having were: 
+- Why is there a mark/bookmark here? Did I do that on purpose? Oh whatever...
+- I wish I could fuzzy search the _semantic meaning of the mark_ that I would have in my head.
+- I want to send the marks, with my annotations, to my AI assistant to help me with my daily workflow.
+- On massive codebases, I wish these marks had a 'why' to them. 
+
+The closest alternative I found was vim-bookmarks, but it is semi-broken, and the last commit was 5 years ago.
+Time for modern alternative!
+
+I hope this helps others with the same issues.
+
+## Acknowledgements
+
+- folke for snacks.nvim and sidekick.nvim. I use these plugins hundreds of times a day and they are amazing
+  * The API was extremely easy to work with. I also stole his CI/CD for my tests
+- echasnovski for the mini.docs template. Having a way to automatically generate documentation from annotations
+  is a lifesaver
+  
+## Similar Plugins
+
+- [harpoon.nvim](https://github.com/ThePrimeagen/harpoon)
+- [spelunk.nvim](https://github.com/EvWilson/spelunk.nvim)
+- [marks.nvim](https://github.com/chentoast/marks.nvim)
+- [vim-bookmarks](https://github.com/MattesGroeger/vim-bookmarks)
+
+<details>
+
+<summary>Possible Improvement</summary>
+
+- [ ] Users should be able to toggle notification. add a 'notify' option to config.
+this can take in a boolean, or a logging level. then, in the program, we can use
+a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
+- [ ] Integration for Telescope and fzf-lua?
+- [ ] Quickfix list integration? I feel like picker is more than enough though. If you see this and want it, open a ticket.
+
+</details>
