@@ -1,11 +1,13 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt.persistence", function()
 	local persistence
 
 	before_each(function()
-		package.loaded["haunt.persistence"] = nil
+		helpers.reset_modules()
 		persistence = require("haunt.persistence")
 	end)
 

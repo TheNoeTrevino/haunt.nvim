@@ -1,6 +1,8 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt.picker", function()
 	local picker
 	local api
@@ -13,26 +15,6 @@ describe("haunt.picker", function()
 	local original_notify
 	local original_input
 	local notifications
-
-	-- Helper to create a test buffer
-	local function create_test_buffer(lines, filename)
-		local bufnr = vim.api.nvim_create_buf(false, false)
-		local test_file = filename or (vim.fn.tempname() .. ".lua")
-		vim.api.nvim_buf_set_name(bufnr, test_file)
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines or { "Line 1", "Line 2", "Line 3" })
-		vim.api.nvim_set_current_buf(bufnr)
-		return bufnr, test_file
-	end
-
-	-- Helper to clean up buffer
-	local function cleanup_buffer(bufnr, test_file)
-		if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-			vim.api.nvim_buf_delete(bufnr, { force = true })
-		end
-		if test_file then
-			vim.fn.delete(test_file)
-		end
-	end
 
 	-- Create mock Snacks picker
 	local function create_mock_snacks()
@@ -83,13 +65,7 @@ describe("haunt.picker", function()
 	end
 
 	before_each(function()
-		-- Reset modules
-		package.loaded["haunt.picker"] = nil
-		package.loaded["haunt.api"] = nil
-		package.loaded["haunt.display"] = nil
-		package.loaded["haunt.persistence"] = nil
-		package.loaded["haunt.config"] = nil
-		package.loaded["haunt"] = nil
+		helpers.reset_modules()
 		package.loaded["snacks"] = nil
 
 		-- Setup mocks
@@ -131,11 +107,11 @@ describe("haunt.picker", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("notifies when no bookmarks exist", function()
@@ -201,11 +177,11 @@ describe("haunt.picker", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("returns items with all required fields", function()
@@ -306,18 +282,18 @@ describe("haunt.picker", function()
 		local bufnr1, test_file1, bufnr2, test_file2
 
 		before_each(function()
-			bufnr1, test_file1 = create_test_buffer({ "File1 Line 1", "File1 Line 2", "File1 Line 3" })
+			bufnr1, test_file1 = helpers.create_test_buffer({ "File1 Line 1", "File1 Line 2", "File1 Line 3" })
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
 			api.annotate("Bookmark in file 1")
 
-			bufnr2, test_file2 = create_test_buffer({ "File2 Line 1", "File2 Line 2" })
+			bufnr2, test_file2 = helpers.create_test_buffer({ "File2 Line 1", "File2 Line 2" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Bookmark in file 2")
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr1, test_file1)
-			cleanup_buffer(bufnr2, test_file2)
+			helpers.cleanup_buffer(bufnr1, test_file1)
+			helpers.cleanup_buffer(bufnr2, test_file2)
 		end)
 
 		it("switches to loaded file buffer", function()
@@ -401,7 +377,7 @@ describe("haunt.picker", function()
 		local bufnr, test_file
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("First")
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
@@ -411,7 +387,7 @@ describe("haunt.picker", function()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("deletes bookmark by ID", function()
@@ -503,7 +479,7 @@ describe("haunt.picker", function()
 		local input_responses
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Original note")
 
@@ -514,7 +490,7 @@ describe("haunt.picker", function()
 		end)
 
 		after_each(function()
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("prompts with existing annotation as default", function()
@@ -630,7 +606,7 @@ describe("haunt.picker", function()
 
 		it("works with unloaded files", function()
 			-- Add bookmark to file, then delete buffer
-			local temp_bufnr, temp_file = create_test_buffer({ "Temp line 1" })
+			local temp_bufnr, temp_file = helpers.create_test_buffer({ "Temp line 1" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Temp note")
 
@@ -658,14 +634,14 @@ describe("haunt.picker", function()
 			local ok = pcall(execute_action, mock_snacks.picker_config, "edit_annotation", item)
 			assert.is_true(ok)
 
-			cleanup_buffer(nil, temp_file)
+			helpers.cleanup_buffer(nil, temp_file)
 		end)
 	end)
 
 	describe("edge cases", function()
 		it("debug: checks module identity", function()
 			-- Create a bookmark
-			local bufnr, test_file = create_test_buffer()
+			local bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Test")
 
@@ -688,11 +664,11 @@ describe("haunt.picker", function()
 			local bookmarks_from_picker_api = api_like_picker.get_bookmarks()
 			assert.are.equal(1, #bookmarks_from_picker_api, "Picker's api should see the bookmark")
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles single bookmark", function()
-			local bufnr, test_file = create_test_buffer()
+			local bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Only one")
 
@@ -729,19 +705,19 @@ describe("haunt.picker", function()
 			assert.are.equal(1, #items)
 			assert.are.equal("Only one", items[1].note)
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles bookmarks across multiple files", function()
-			local bufnr1, test_file1 = create_test_buffer(nil, "/tmp/file1.lua")
+			local bufnr1, test_file1 = helpers.create_test_buffer(nil, "/tmp/file1.lua")
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("File 1")
 
-			local bufnr2, test_file2 = create_test_buffer(nil, "/tmp/file2.lua")
+			local bufnr2, test_file2 = helpers.create_test_buffer(nil, "/tmp/file2.lua")
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("File 2")
 
-			local bufnr3, test_file3 = create_test_buffer(nil, "/tmp/file3.lua")
+			local bufnr3, test_file3 = helpers.create_test_buffer(nil, "/tmp/file3.lua")
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("File 3")
 
@@ -750,14 +726,14 @@ describe("haunt.picker", function()
 
 			assert.are.equal(3, #items)
 
-			cleanup_buffer(bufnr1, test_file1)
-			cleanup_buffer(bufnr2, test_file2)
-			cleanup_buffer(bufnr3, test_file3)
+			helpers.cleanup_buffer(bufnr1, test_file1)
+			helpers.cleanup_buffer(bufnr2, test_file2)
+			helpers.cleanup_buffer(bufnr3, test_file3)
 		end)
 
 		it("handles very long file paths", function()
 			local long_path = "/tmp/very/long/nested/directory/structure/that/goes/on/and/on/file.lua"
-			local bufnr, test_file = create_test_buffer(nil, long_path)
+			local bufnr, test_file = helpers.create_test_buffer(nil, long_path)
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Long path test")
 
@@ -767,12 +743,12 @@ describe("haunt.picker", function()
 			assert.are.equal(1, #items)
 			assert.are.equal(long_path, items[1].file)
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles very long annotations", function()
 			local long_note = string.rep("This is a very long annotation text. ", 20)
-			local bufnr, test_file = create_test_buffer()
+			local bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate(long_note)
 
@@ -782,12 +758,12 @@ describe("haunt.picker", function()
 			assert.are.equal(1, #items)
 			assert.are.equal(long_note, items[1].note)
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles special characters in paths", function()
 			local special_path = "/tmp/file with spaces & special-chars_123.lua"
-			local bufnr, test_file = create_test_buffer(nil, special_path)
+			local bufnr, test_file = helpers.create_test_buffer(nil, special_path)
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Special chars")
 
@@ -797,12 +773,12 @@ describe("haunt.picker", function()
 			assert.are.equal(1, #items)
 			assert.are.equal(special_path, items[1].file)
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles special characters in annotations", function()
 			local special_note = 'Note with "quotes", <brackets>, & ampersands, and émojis! 🎉'
-			local bufnr, test_file = create_test_buffer()
+			local bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate(special_note)
 
@@ -812,11 +788,11 @@ describe("haunt.picker", function()
 			assert.are.equal(1, #items)
 			assert.are.equal(special_note, items[1].note)
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles minimal notes correctly", function()
-			local bufnr, test_file = create_test_buffer()
+			local bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 
 			-- Create bookmark with minimal text
@@ -834,11 +810,11 @@ describe("haunt.picker", function()
 			-- Text should not contain "nil"
 			assert.is_falsy(items[1].text:match("nil"), "Text should not contain 'nil'")
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("handles bookmark at last line of file", function()
-			local bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3" })
+			local bufnr, test_file = helpers.create_test_buffer({ "Line 1", "Line 2", "Line 3" })
 			vim.api.nvim_win_set_cursor(0, { 3, 0 })
 			api.annotate("Last line")
 
@@ -849,7 +825,7 @@ describe("haunt.picker", function()
 			local cursor = vim.api.nvim_win_get_cursor(0)
 			assert.are.equal(3, cursor[1])
 
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 	end)
 end)

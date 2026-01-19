@@ -1,6 +1,8 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt.display", function()
 	local display
 	---@class haunt.Persistence
@@ -9,9 +11,7 @@ describe("haunt.display", function()
 	local config
 
 	before_each(function()
-		package.loaded["haunt.display"] = nil
-		package.loaded["haunt.persistence"] = nil
-		package.loaded["haunt.config"] = nil
+		helpers.reset_modules()
 		display = require("haunt.display")
 		persistence = require("haunt.persistence")
 		config = require("haunt.config")

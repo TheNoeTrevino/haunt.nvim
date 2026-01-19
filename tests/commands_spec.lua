@@ -1,40 +1,18 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt user commands", function()
 	local haunt
 	local api
 
-	-- Helper to create a test buffer
-	local function create_test_buffer(lines)
-		local bufnr = vim.api.nvim_create_buf(false, false)
-		local test_file = vim.fn.tempname() .. ".lua"
-		vim.api.nvim_buf_set_name(bufnr, test_file)
-		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines or { "Line 1", "Line 2", "Line 3" })
-		vim.api.nvim_set_current_buf(bufnr)
-		return bufnr, test_file
-	end
-
-	-- Helper to cleanup buffer
-	local function cleanup_buffer(bufnr, test_file)
-		if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-			vim.api.nvim_buf_delete(bufnr, { force = true })
-		end
-		if test_file then
-			vim.fn.delete(test_file)
-		end
-	end
-
 	before_each(function()
-		package.loaded["haunt"] = nil
-		package.loaded["haunt.api"] = nil
-		package.loaded["haunt.display"] = nil
-		package.loaded["haunt.persistence"] = nil
-		package.loaded["haunt.config"] = nil
+		helpers.reset_modules()
 		haunt = require("haunt")
 		haunt.setup()
 		api = require("haunt.api")
-		api._reset_for_testing() -- Clear any persisted bookmarks
+		api._reset_for_testing()
 	end)
 
 	describe("command registration", function()
@@ -61,13 +39,13 @@ describe("haunt user commands", function()
 		local original_input
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			original_input = vim.fn.input
 		end)
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("creates annotated bookmark", function()
@@ -89,7 +67,7 @@ describe("haunt user commands", function()
 		local original_input
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			original_input = vim.fn.input
 			vim.fn.input = function()
 				return "Test"
@@ -98,7 +76,7 @@ describe("haunt user commands", function()
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("removes bookmark at cursor", function()
@@ -120,7 +98,7 @@ describe("haunt user commands", function()
 		local original_input
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer({ "Line 1", "Line 2", "Line 3", "Line 4", "Line 5" })
+			bufnr, test_file = helpers.create_test_buffer({ "Line 1", "Line 2", "Line 3", "Line 4", "Line 5" })
 			original_input = vim.fn.input
 			vim.fn.input = function()
 				return "Test"
@@ -137,7 +115,7 @@ describe("haunt user commands", function()
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("HauntNext jumps to next bookmark", function()
@@ -165,21 +143,21 @@ describe("haunt user commands", function()
 				return "Test"
 			end
 
-			bufnr1, test_file1 = create_test_buffer({ "File1 Line 1", "File1 Line 2" })
+			bufnr1, test_file1 = helpers.create_test_buffer({ "File1 Line 1", "File1 Line 2" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			vim.cmd("HauntAnnotate")
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
 			vim.cmd("HauntAnnotate")
 
-			bufnr2, test_file2 = create_test_buffer({ "File2 Line 1" })
+			bufnr2, test_file2 = helpers.create_test_buffer({ "File2 Line 1" })
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			vim.cmd("HauntAnnotate")
 		end)
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr1, test_file1)
-			cleanup_buffer(bufnr2, test_file2)
+			helpers.cleanup_buffer(bufnr1, test_file1)
+			helpers.cleanup_buffer(bufnr2, test_file2)
 		end)
 
 		it("clears only current file bookmarks", function()
@@ -206,7 +184,7 @@ describe("haunt user commands", function()
 				return "Test"
 			end
 
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			vim.cmd("HauntAnnotate")
 			vim.api.nvim_win_set_cursor(0, { 2, 0 })
@@ -216,7 +194,7 @@ describe("haunt user commands", function()
 		after_each(function()
 			vim.fn.input = original_input
 			vim.fn.confirm = original_confirm
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("clears all bookmarks when confirmed", function()
@@ -239,7 +217,7 @@ describe("haunt user commands", function()
 		local original_input
 
 		before_each(function()
-			bufnr, test_file = create_test_buffer()
+			bufnr, test_file = helpers.create_test_buffer()
 			original_input = vim.fn.input
 			vim.fn.input = function()
 				return "Test"
@@ -251,7 +229,7 @@ describe("haunt user commands", function()
 
 		after_each(function()
 			vim.fn.input = original_input
-			cleanup_buffer(bufnr, test_file)
+			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
 		it("calls picker.show without throwing", function()
