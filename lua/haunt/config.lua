@@ -30,7 +30,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field line_hl? string|nil The highlight group for the entire line (default: nil)
 ---@field virt_text_pos? string Position of virtual text: "eol" (default), "eol_right_align", "overlay", "right_align", "inline"
 ---@field data_dir? string|nil Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
----@field picker_keys? table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
+---@field picker_keys table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
 --minidoc_replace_start M.DEFAULT = {
 M.DEFAULT = {
 	--minidoc_replace_end
