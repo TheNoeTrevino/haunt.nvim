@@ -40,7 +40,7 @@ end
 ---   -- Get all bookmarks
 ---   local sidekick = require('haunt.sidekick')
 ---   local locations = sidekick.get_locations()
----   
+---
 ---   -- Get only current buffer bookmarks
 ---   local current = sidekick.get_locations({ current_buffer = true })
 ---<

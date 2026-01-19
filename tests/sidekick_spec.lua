@@ -1,16 +1,15 @@
 ---@module 'luassert'
 ---@diagnostic disable: need-check-nil, param-type-mismatch
 
+local helpers = require("tests.helpers")
+
 describe("haunt.sidekick", function()
 	local sidekick
 	local api
 	local cwd
 
 	before_each(function()
-		-- Reset modules for clean state
-		package.loaded["haunt.sidekick"] = nil
-		package.loaded["haunt.api"] = nil
-
+		helpers.reset_modules()
 		sidekick = require("haunt.sidekick")
 		api = require("haunt.api")
 		cwd = vim.fn.getcwd()

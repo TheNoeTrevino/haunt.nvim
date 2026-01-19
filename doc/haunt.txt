@@ -283,92 +283,13 @@ Fields ~
 {_reset_for_testing} `(fun())`
 
 ------------------------------------------------------------------------------
-                                                           *add_to_file_index()*
-                        `add_to_file_index`({bookmark})
-Add a bookmark to the file-based index
-Maintains sorted order by line number using binary search insertion
-Parameters ~
-{bookmark} `(Bookmark)` The bookmark to add to the index
-
-------------------------------------------------------------------------------
-                                                      *remove_from_file_index()*
-                      `remove_from_file_index`({bookmark})
-Remove a bookmark from the file-based index
-Parameters ~
-{bookmark} `(Bookmark)` The bookmark to remove from the index
-
-------------------------------------------------------------------------------
-                                                       *clear_file_from_index()*
-                      `clear_file_from_index`({filepath})
-Clear all bookmarks for a specific file from the index
-Parameters ~
-{filepath} `(string)` The file path to clear from the index
-
-------------------------------------------------------------------------------
-                                                          *rebuild_file_index()*
-                             `rebuild_file_index`()
-Rebuild the entire file-based index from the bookmarks array
-This is called after loading bookmarks from persistence
-
-------------------------------------------------------------------------------
-                                                               *ensure_loaded()*
-                               `ensure_loaded`()
-Ensure bookmarks have been loaded
-Triggers deferred loading if not already loaded
-
-------------------------------------------------------------------------------
-                                                          *normalize_filepath()*
-                          `normalize_filepath`({path})
-Normalize a file path to absolute form
-Ensures consistent path representation for comparisons
-Parameters ~
-{path} `(string)` The file path to normalize
-Return ~
-`(string)` normalized_path The absolute file path
-
-------------------------------------------------------------------------------
-                                                      *ensure_buffer_for_file()*
-                      `ensure_buffer_for_file`({filepath})
-Ensure a buffer exists and is loaded for a file path
-Creates the buffer if it doesn't exist and loads it
-Parameters ~
-{filepath} `(string)` The file path to get/create a buffer for
-Return ~
-`(number|nil)` bufnr The buffer number, or nil if failed
-Return ~
-`(string|nil)` error_msg Error message if validation fails
-
-------------------------------------------------------------------------------
-                                                                  *find_by_id()*
-                          `find_by_id`({bookmark_id})
-Find a bookmark by its ID
-Parameters ~
-{bookmark_id} `(string)` The unique ID of the bookmark to find
-Return ~
-`(table|nil)` bookmark The bookmark if found, nil otherwise
-Return ~
-`(number|nil)` index The index in the bookmarks array, nil if not found
-
-------------------------------------------------------------------------------
                                                     *cleanup_bookmark_visuals()*
                 `cleanup_bookmark_visuals`({bufnr}, {bookmark})
 Clean up all visual elements for a bookmark
 Removes extmarks, signs, and annotations from the buffer
 Parameters ~
 {bufnr} `(number)` Buffer number
-{bookmark} `(table)` The bookmark whose visuals should be cleaned up
-
-------------------------------------------------------------------------------
-                                               *validate_buffer_for_bookmarks()*
-                    `validate_buffer_for_bookmarks`({bufnr})
-Validate that a buffer can have bookmarks
-Checks for empty filepath, special buffers, buffer types, and modifiable status
-Parameters ~
-{bufnr} `(number)` Buffer number to validate
-Return ~
-`(boolean)` valid True if buffer can have bookmarks
-Return ~
-`(string|nil)` error_msg Error message if validation fails
+{bookmark} `(Bookmark)` The bookmark whose visuals should be cleaned up
 
 ------------------------------------------------------------------------------
                                                  *create_and_persist_bookmark()*
@@ -390,22 +311,10 @@ Update an existing bookmark's annotation
 Parameters ~
 {bufnr} `(number)` Buffer number
 {line} `(number)` 1-based line number
-{bookmark} `(table)` The bookmark to update
+{bookmark} `(Bookmark)` The bookmark to update
 {new_note} `(string)` The new annotation text
 Return ~
 `(boolean)` success True if bookmark was updated and persisted successfully
-
-------------------------------------------------------------------------------
-                                                        *get_bookmark_at_line()*
-                    `get_bookmark_at_line`({bufnr}, {line})
-Find a bookmark at a specific line in a buffer
-Parameters ~
-{bufnr} `(number)` Buffer number
-{line} `(number)` 1-based line number
-Return ~
-`(table|nil)` bookmark The bookmark at the line, or nil if none exists
-Return ~
-`(number|nil)` index The index of the bookmark in the bookmarks table
 
 ------------------------------------------------------------------------------
                                                          *M.toggle_annotation()*
@@ -463,90 +372,6 @@ Usage ~
   require('haunt.api').delete()
 <
 ------------------------------------------------------------------------------
-                                                             *M.get_bookmarks()*
-                              `M.get_bookmarks`()
-Get all bookmarks as a deep copy.
-
-Returns all bookmarks currently in memory. The returned table is a
-deep copy, so modifications won't affect the internal state.
-
-Return ~
-`(Bookmark[])` bookmarks Array of all bookmarks
-
-Usage ~
->lua
-  local bookmarks = require('haunt.api').get_bookmarks()
-  for _, bookmark in ipairs(bookmarks) do
-    print(string.format("%s:%d - %s",
-      bookmark.file, bookmark.line, bookmark.note or ""))
-  end
-<
-------------------------------------------------------------------------------
-                                                             *M.has_bookmarks()*
-                              `M.has_bookmarks`()
-Check if any bookmarks exist.
-
-Returns true if there are any bookmarks in memory (after loading from disk).
-This is more reliable than checking package.loaded state.
-
-Return ~
-`(boolean)` has_bookmarks True if bookmarks exist, false otherwise
-
-Usage ~
->lua
-  if require('haunt.api').has_bookmarks() then
-    print("Bookmarks found!")
-  end
-<
-------------------------------------------------------------------------------
-                                                    *restore_bookmark_display()*
-                `restore_bookmark_display`({bufnr}, {bookmark})
-Restore visual elements (extmarks, signs, annotations) for a bookmark in a loaded buffer
-This is called when loading bookmarks to recreate visual state
-Parameters ~
-{bufnr} `(number)` Buffer number
-{bookmark} `(table)` The bookmark to restore
-
-------------------------------------------------------------------------------
-                                                                      *M.load()*
-                                   `M.load`()
-Load bookmarks from persistent storage.
-
-This is called automatically when needed. You typically don't need
-to call this manually unless you want to reload bookmarks from disk.
-
-Return ~
-`(boolean)` success True if load succeeded
-
-------------------------------------------------------------------------------
-                                                  *M.restore_buffer_bookmarks()*
-                     `M.restore_buffer_bookmarks`({bufnr})
-Restore bookmark visuals for a specific buffer.
-
-This is called automatically when buffers are opened. You typically
-don't need to call this manually.
-
-Parameters ~
-{bufnr} `(number)` Buffer number to restore bookmarks for
-Return ~
-`(boolean)` success True if restoration succeeded or was skipped
-
-------------------------------------------------------------------------------
-                                                                      *M.save()*
-                                   `M.save`()
-Save bookmarks to persistent storage.
-
-Bookmarks are auto-saved on buffer hide and Neovim exit, but you can
-call this manually to force a save.
-
-Return ~
-`(boolean)` success True if save succeeded
-
-Usage ~
->lua
-  require('haunt.api').save()
-<
-------------------------------------------------------------------------------
                                                                   *M.annotate()*
                               `M.annotate`({text})
 Add or edit an annotation for a bookmark.
@@ -595,6 +420,88 @@ Usage ~
   require('haunt.api').clear_all()
 <
 ------------------------------------------------------------------------------
+                                                              *M.delete_by_id()*
+                        `M.delete_by_id`({bookmark_id})
+Delete a bookmark by its unique ID.
+
+This is useful for programmatic deletion without needing to navigate
+to the bookmark (e.g., from the picker).
+
+Parameters ~
+{bookmark_id} `(string)` The unique ID of the bookmark to delete
+Return ~
+`(boolean)` success True if the bookmark was deleted
+
+Usage ~
+>lua
+  local bookmarks = require('haunt.api').get_bookmarks()
+  if #bookmarks > 0 then
+    require('haunt.api').delete_by_id(bookmarks[1].id)
+  end
+<
+------------------------------------------------------------------------------
+                                                             *M.get_bookmarks()*
+                              `M.get_bookmarks`()
+Get all bookmarks as a deep copy.
+
+Returns all bookmarks currently in memory. The returned table is a
+deep copy, so modifications won't affect the internal state.
+
+Return ~
+`(Bookmark[])` bookmarks Array of all bookmarks
+
+Usage ~
+>lua
+  local bookmarks = require('haunt.api').get_bookmarks()
+  for _, bookmark in ipairs(bookmarks) do
+    print(string.format("%s:%d - %s",
+      bookmark.file, bookmark.line, bookmark.note or ""))
+  end
+<
+------------------------------------------------------------------------------
+                                                             *M.has_bookmarks()*
+                              `M.has_bookmarks`()
+Check if any bookmarks exist.
+
+Returns true if there are any bookmarks in memory (after loading from disk).
+This is more reliable than checking package.loaded state.
+
+Return ~
+`(boolean)` has_bookmarks True if bookmarks exist, false otherwise
+
+Usage ~
+>lua
+  if require('haunt.api').has_bookmarks() then
+    print("Bookmarks found!")
+  end
+<
+------------------------------------------------------------------------------
+                                                                      *M.load()*
+                                   `M.load`()
+Load bookmarks from persistent storage.
+
+This is called automatically when needed. You typically don't need
+to call this manually unless you want to reload bookmarks from disk.
+
+Return ~
+`(boolean)` success True if load succeeded
+
+------------------------------------------------------------------------------
+                                                                      *M.save()*
+                                   `M.save`()
+Save bookmarks to persistent storage.
+
+Bookmarks are auto-saved on buffer hide and Neovim exit, but you can
+call this manually to force a save.
+
+Return ~
+`(boolean)` success True if save succeeded
+
+Usage ~
+>lua
+  require('haunt.api').save()
+<
+------------------------------------------------------------------------------
                                                                       *M.next()*
                                    `M.next`()
 Jump to the next bookmark in the current buffer.
@@ -623,25 +530,18 @@ Usage ~
   require('haunt.api').prev()
 <
 ------------------------------------------------------------------------------
-                                                              *M.delete_by_id()*
-                        `M.delete_by_id`({bookmark_id})
-Delete a bookmark by its unique ID.
+                                                  *M.restore_buffer_bookmarks()*
+                     `M.restore_buffer_bookmarks`({bufnr})
+Restore bookmark visuals for a specific buffer.
 
-This is useful for programmatic deletion without needing to navigate
-to the bookmark (e.g., from the picker).
+This is called automatically when buffers are opened. You typically
+don't need to call this manually.
 
 Parameters ~
-{bookmark_id} `(string)` The unique ID of the bookmark to delete
+{bufnr} `(number)` Buffer number to restore bookmarks for
 Return ~
-`(boolean)` success True if the bookmark was deleted
+`(boolean)` success True if restoration succeeded or was skipped
 
-Usage ~
->lua
-  local bookmarks = require('haunt.api').get_bookmarks()
-  if #bookmarks > 0 then
-    require('haunt.api').delete_by_id(bookmarks[1].id)
-  end
-<
 ------------------------------------------------------------------------------
                                                    *M.cleanup_buffer_tracking()*
                       `M.cleanup_buffer_tracking`({bufnr})

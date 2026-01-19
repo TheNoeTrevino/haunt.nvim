@@ -34,15 +34,9 @@ _cache_time	haunt.txt	/*_cache_time*
 _git_info_cache	haunt.txt	/*_git_info_cache*
 _git_warning_shown	haunt.txt	/*_git_warning_shown*
 _initialized	haunt.txt	/*_initialized*
-add_to_file_index()	haunt.txt	/*add_to_file_index()*
 cleanup_bookmark_visuals()	haunt.txt	/*cleanup_bookmark_visuals()*
-clear_file_from_index()	haunt.txt	/*clear_file_from_index()*
 create_and_persist_bookmark()	haunt.txt	/*create_and_persist_bookmark()*
-ensure_buffer_for_file()	haunt.txt	/*ensure_buffer_for_file()*
-ensure_loaded()	haunt.txt	/*ensure_loaded()*
-find_by_id()	haunt.txt	/*find_by_id()*
 generate_bookmark_id()	haunt.txt	/*generate_bookmark_id()*
-get_bookmark_at_line()	haunt.txt	/*get_bookmark_at_line()*
 get_git_branch()	haunt.txt	/*get_git_branch()*
 get_git_root()	haunt.txt	/*get_git_root()*
 haunt	haunt.txt	/*haunt*
@@ -57,11 +51,6 @@ haunt-quickstart	haunt.txt	/*haunt-quickstart*
 haunt-sidekick	haunt.txt	/*haunt-sidekick*
 haunt-troubleshooting	haunt.txt	/*haunt-troubleshooting*
 haunt.nvim	haunt.txt	/*haunt.nvim*
-normalize_filepath()	haunt.txt	/*normalize_filepath()*
-rebuild_file_index()	haunt.txt	/*rebuild_file_index()*
-remove_from_file_index()	haunt.txt	/*remove_from_file_index()*
-restore_bookmark_display()	haunt.txt	/*restore_bookmark_display()*
 save_timer	haunt.txt	/*save_timer*
 update_bookmark_annotation()	haunt.txt	/*update_bookmark_annotation()*
 user_config	haunt.txt	/*user_config*
-validate_buffer_for_bookmarks()	haunt.txt	/*validate_buffer_for_bookmarks()*
