@@ -213,6 +213,7 @@ function M.show()
 
 	-- Create picker with custom actions
 	Snacks.picker({
+		title = "Hauntings",
 		-- Use a finder function so picker:refresh() works correctly
 		finder = function()
 			local bookmarks = api.get_bookmarks()
