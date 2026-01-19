@@ -114,7 +114,7 @@ end
 ---   - root: absolute path to git repository root, or nil if not in a git repo
 ---   - branch: name of current branch, or nil if not in a git repo, detached HEAD, or no commits
 function M.get_git_info()
-	local now = vim.loop.hrtime() / 1e6 -- Convert to milliseconds
+	local now = vim.uv.hrtime() / 1e6 -- Convert to milliseconds
 
 	-- Check if cache is valid
 	if _git_info_cache and (now - _cache_time) < CACHE_TTL then
@@ -287,7 +287,7 @@ function M.create_bookmark(file, line, note)
 	end
 
 	-- Generate unique ID using SHA256 hash of file + line + timestamp
-	local timestamp = tostring(vim.loop.hrtime())
+	local timestamp = tostring(vim.uv.hrtime())
 	local id_key = file .. tostring(line) .. timestamp
 	local id = vim.fn.sha256(id_key):sub(1, 16) -- 16 chars for uniqueness
 
