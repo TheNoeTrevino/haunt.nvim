@@ -4,7 +4,7 @@
 ---@field get_config fun(): table
 ---@field is_initialized fun(): boolean
 ---@field show_annotation fun(bufnr: number, line: number, note: string): number|nil
----@field hide_annotation fun(bufnr: number, extmark_id: number)
+---@field hide_annotation fun(bufnr: number, extmark_id: number): boolean
 ---@field set_bookmark_mark fun(bufnr: number, bookmark: Bookmark): number|nil
 ---@field get_extmark_line fun(bufnr: number, extmark_id: number): number|nil
 ---@field delete_bookmark_mark fun(bufnr: number, extmark_id: number)
@@ -107,10 +107,10 @@ function M.is_initialized()
 end
 
 --- Show annotation as virtual text at the end of a line
---- @param bufnr number Buffer number
---- @param line number 1-based line number
---- @param note string The annotation text to display
---- @return number|nil extmark_id The ID of the created extmark, or nil if validation fails
+---@param bufnr number Buffer number
+---@param line number 1-based line number
+---@param note string The annotation text to display
+---@return number|nil extmark_id The ID of the created extmark, or nil if validation fails
 function M.show_annotation(bufnr, line, note)
 	ensure_highlights_defined()
 
@@ -144,8 +144,8 @@ function M.show_annotation(bufnr, line, note)
 end
 
 --- Hide annotation by removing the extmark
---- @param bufnr number Buffer number
---- @param extmark_id number The extmark ID to remove
+---@param bufnr number Buffer number
+---@param extmark_id number The extmark ID to remove
 ---@return boolean success True if hiding was successful, false otherwise
 function M.hide_annotation(bufnr, extmark_id)
 	if not is_valid_buffer(bufnr) then
