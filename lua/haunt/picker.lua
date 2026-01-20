@@ -169,7 +169,8 @@ end
 ---   -- Show the picker
 ---   require('haunt.picker').show()
 ---<
-function M.show()
+---@param opts? table Options to pass to Snacks.picker
+function M.show(opts)
 	ensure_modules()
 	---@cast api -nil
 	---@cast haunt -nil
@@ -211,8 +212,7 @@ function M.show()
 		list_keys[key] = { "edit_annotation", mode = mode }
 	end
 
-	-- Create picker with custom actions
-	Snacks.picker({
+	local picker_opts = {
 		title = "Hauntings",
 		-- Use a finder function so picker:refresh() works correctly
 		finder = function()
@@ -299,7 +299,9 @@ function M.show()
 				keys = list_keys,
 			},
 		},
-	})
+	}
+	picker_opts = vim.tbl_deep_extend("force", picker_opts, opts or {})
+	Snacks.picker(picker_opts)
 end
 
 return M

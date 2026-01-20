@@ -171,6 +171,32 @@ describe("haunt.picker", function()
 			assert.is_not_nil(config.win.list)
 			assert.is_not_nil(config.win.list.keys)
 		end)
+
+		it("merges opts into Snacks.picker config", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			local custom_opts = {
+				title = "Custom Title",
+				layout = { preset = "vscode" },
+				win = {
+					input = {
+						keys = { ["<C-x>"] = "close" },
+					},
+				},
+			}
+
+			picker.show(custom_opts)
+
+			local config = mock_snacks.picker_config
+			assert.are.equal("Custom Title", config.title)
+			assert.are.equal("vscode", config.layout.preset)
+			assert.are.equal("close", config.win.input.keys["<C-x>"])
+			-- Check that default keys are preserved/merged
+			if config.win.input.keys["d"] then
+				assert.are.equal("delete", config.win.input.keys["d"][1])
+			end
+		end)
 	end)
 
 	describe("finder function", function()
