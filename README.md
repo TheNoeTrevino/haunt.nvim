@@ -1,6 +1,8 @@
 # `haunt.nvim` 👻
 
-Hear the ghosts tell you where you were and why you were there.
+![IMG_0236(1)](https://github.com/user-attachments/assets/de341829-817b-4276-8e72-bb6bf61261b1)
+
+Hear the ghosts tell you where you were, and why you were there.
 
 Bring back the past with haunt.nvim!
 
@@ -17,6 +19,7 @@ Keep your mental overhead to a minimum and never repeatedly rummage through your
 - Jump around using your hauntings
 - Search through your bookmarks with `snacks.nvim` 
 - Use `sidekick.nvim` to send your annotations to your favorite cli tool. Have a robot purge you of your hauntings!
+- Though the examples don't show this, this plugin was deisgned to ease the navigation of massive codebases through semantic markings
 - Super fast, and does its best to have as little computations, and load time, as possible. I get around .6ms ;)
 
 ## Requirements
@@ -224,9 +227,9 @@ https://github.com/user-attachments/assets/1d2b996c-b0be-459c-9ff0-63e7a1ebb936
 
 I have tried all the bookmarking plugins out there, and none of them really fit my workflow.
 The specific issues I kept having were: 
-- Why is there a mark/bookmark here? 
-- I wish I could fuzzy search the _semantic meaning of the mark_ I would have in my head.
-- I want to send the marks, with my thoughts, to my AI assistant to help me with my daily workflow.
+- Why is there a mark/bookmark here? Did I do that on purpose? Oh whatever...
+- I wish I could fuzzy search the _semantic meaning of the mark_ that I would have in my head.
+- I want to send the marks, with my annotations, to my AI assistant to help me with my daily workflow.
 - On massive codebases, I wish these marks had a 'why' to them. 
 
 The closest alternative I found was vim-bookmarks, but it is semi-broken, and the last commit was 5 years ago.
@@ -239,7 +242,7 @@ I hope this helps others with the same issues.
 - folke for snacks.nvim and sidekick.nvim. I use these plugins hundreds of times a day and they are amazing
   * The API was extremely easy to work with. I also stole his CI/CD for my tests
 - echasnovski for the mini.docs template. Having a way to automatically generate documentation from annotations
-  is a game changer
+  is a lifesaver
   
 ## Similar Plugins
 
@@ -247,14 +250,15 @@ I hope this helps others with the same issues.
 - [spelunk.nvim](https://github.com/EvWilson/spelunk.nvim)
 - [marks.nvim](https://github.com/chentoast/marks.nvim)
 - [vim-bookmarks](https://github.com/MattesGroeger/vim-bookmarks)
-- 
+
 <details>
 
 <summary>Possible Improvement</summary>
+
 - [ ] Users should be able to toggle notification. add a 'notify' option to config.
 this can take in a boolean, or a logging level. then, in the program, we can use
 a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
 - [ ] Integration for Telescope and fzf-lua?
-- [ ] Quickfix list integration? I feel like picker is more than enough though
+- [ ] Quickfix list integration? I feel like picker is more than enough though. If you see this and want it, open a ticket.
 
 </details>
