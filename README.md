@@ -1,12 +1,15 @@
-# `haunt.nvim`
+# `haunt.nvim` 👻
 
-Hear the ghosts of where you’ve been...
+![IMG_0236(1)](https://github.com/user-attachments/assets/09c862cf-5063-4b86-8eb9-164b789bdfa9)
 
-Annotate your code base with ghost text, search through the history of your files.
+
+Hear the ghosts tell you where you were and why...
 
 Bring back the past with haunt.nvim!
 
-TODO: add a little photo of a ghost and a programmer
+Annotate your codebase with ghost text. Search through the relevant history.
+
+Keep your mental overhead to a minimum and never repeatedly rummage through your codebase again.
 
 ## Features
 
@@ -14,20 +17,18 @@ TODO: add a little photo of a ghost and a programmer
   * Keep your personal notes in your code without modifying the actual files
 - Git integration
   * annotations are tied to a git branch. Keep different notes for different branches
-- Search through your bookmarks with `snacks.nvim` (Telescope and fzf.lua support coming soon)
-- Send your bookmarks to `sidekick.nvim` so your favorite cli tool can help purge you of your hauntings
+- Jump around using your hauntings
+- Search through your bookmarks with `snacks.nvim` 
+- Use `sidekick.nvim` to send your annotations to your favorite cli tool. Have a robot purge you of your hauntings!
 
 ## Requirements
 
-- what ever neovim version first introduced virtual text, or whatever we use
+- Neovim 0.11 for virtual text
 - [snacks.nvim](https://github.com/folke/snacks.nvim) for picker integration. _(optional)_
 - [sidekick.nvim](https://github.com/folke/sidekick.nvim) for AI integration (and a cli tool of your choice). _(optional)_
 
 ## Installation
 
-TODO: users should be able to toggle notification. add a 'notify' option to config.
-this can take in a boolean, or a logging level. then, in the program, we can use
-a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
 ``` lua
 return {
   "TheNoeTrevino/haunt.nvim",
@@ -93,6 +94,8 @@ return {
 
 ## Usage
 
+https://github.com/user-attachments/assets/717ccc85-a14f-4dff-b496-b448750c33e1
+
 By default, haunt.nvim provides ***no default keymaps***. You will have to set them up yourself. See the installation section for an example.
 The installation section includes some recommended keymaps to get you started.
 You can also just use the user commands, which we will talk about later.
@@ -140,15 +143,28 @@ haunt_picker.show()
 haunt_sk.get_locations()
 haunt_sk.get_locations({current_buffer = true})
 ```
-TODO: add youtube video of usage!
+
+Or you can use the user commands: 
+`HauntAnnotate`
+`HauntClear`
+`HauntClearAll`
+`HauntDelete`
+`HauntList`
+`HauntNext`
+`HauntPrev`
+
+It should be pretty obvious what these do. Use `:h haunt` if you have any questions
 
 ## Integrations 
 
 ### snacks.nvim
 
-Edit and delete annotations from the picker using `snacks.nvim`:
+Search, edit, and delete annotations from the picker using `snacks.nvim`.
 
-TODO: insert gif of this!
+https://github.com/user-attachments/assets/da112d01-b0bc-445d-8d60-edc324c5f31b
+
+You won't need to change anything in your snacks config, but be aware that you can change the mappings. 
+Here is the relevant part of the config: 
 
 ``` lua
 return {
@@ -170,7 +186,11 @@ return {
 
 ### sidekick.nvim
 
-TODO: insert gif of this!
+Send the position of your annotations to your favorite CLI tool through sidekick
+
+https://github.com/user-attachments/assets/390c7301-757c-4248-9623-0300ff872376
+
+Add this to your sidekick configuration:
 
 ``` lua
 
@@ -193,3 +213,18 @@ return {
   }
 }
 ```
+
+### Git
+Keep your annotations scoped to your branches.
+
+https://github.com/user-attachments/assets/1d2b996c-b0be-459c-9ff0-63e7a1ebb936
+
+<details>
+
+<summary>Possible Improvement</summary>
+- [ ] Users should be able to toggle notification. add a 'notify' option to config.
+this can take in a boolean, or a logging level. then, in the program, we can use
+a custom logger that uses vim.notify. we are gonna wanna use closure to store the log level and avoid recomputes
+- [ ] Integration for Telescope and fzf-lua?
+
+</details>
