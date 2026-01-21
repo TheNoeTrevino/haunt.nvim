@@ -7,7 +7,13 @@
 --- Provides bookmark locations in a format compatible with sidekick's location system.
 ---
 
+---@class SidekickModule
+---@field get_locations fun(opts?: SidekickOpts): string
+---@field yank_locations fun(opts?: SidekickOpts): boolean
+
 ---@private
+---@type SidekickModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 ---@class SidekickOpts
@@ -104,6 +110,44 @@ function M.get_locations(opts)
 	end
 
 	return table.concat(lines, "\n")
+end
+
+--- Yank bookmark locations to the unnamedplus register.
+---
+--- Retrieves all bookmarks formatted for sidekick and copies them to the
+--- unnamedplus register (system clipboard). Works as a fallback when
+--- sidekick.nvim is not installed by providing direct access to formatted
+--- bookmark locations.
+---
+---@param opts? SidekickOpts Options for filtering and formatting
+---@return boolean success True if yank was successful, false otherwise
+---
+---@usage >lua
+---   -- made for those who won't (for whatever reason) install sidekick.nvim
+---   local haunt_sk = require('haunt.sidekick')
+---   haunt_sk.yank_locations()
+---
+---   -- Yank only current buffer bookmarks
+---   haunt_sk.yank_locations({ current_buffer = true })
+---
+---   -- Then go paste into the cli tool, manually
+---<
+function M.yank_locations(opts)
+	opts = opts or {}
+
+	local locations = M.get_locations(opts)
+
+	if locations == "" then
+		vim.notify("No bookmarks to yank", vim.log.levels.WARN)
+		return false
+	end
+
+	vim.fn.setreg("+", locations)
+
+	local count = select(2, locations:gsub("\n", "\n")) + 1
+	vim.notify(string.format("Yanked %d bookmark location(s) to clipboard", count), vim.log.levels.INFO)
+
+	return true
 end
 
 return M

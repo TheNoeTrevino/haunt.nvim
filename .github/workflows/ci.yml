@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   ci:
+    if: github.event.pull_request.user.login != 'TheNoeTrevino' || github.event_name != 'pull_request'
     uses: folke/github/.github/workflows/ci.yml@main
     secrets: inherit
     with:

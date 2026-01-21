@@ -99,6 +99,18 @@ return {
     map("n", prefix .. "Q", function()
       haunt.to_quickfix({ current_buffer = true })
     end, { desc = "Show Picker" })
+
+    -- yank
+    map("n", prefix .. "y", function()
+      haunt.yank_locations({current_buffer = true})
+    end, { desc = "Show Picker" })
+
+    map("n", prefix .. "Y", function()
+      haunt.yank_locations()
+    end, { desc = "Show Picker" })
+
+  end,
+}
 ```
 
 ## Usage
