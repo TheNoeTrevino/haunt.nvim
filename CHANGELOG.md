@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.3.0...v0.4.0) (2026-01-21)
+
+
+### Features
+
+* allow passing opts to picker.show to customize Snacks.picker ([14cdb15](https://github.com/TheNoeTrevino/haunt.nvim/commit/14cdb15d20127af933516588ae3b1546861c7134))
+
 ## [0.3.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.2.0...v0.3.0) (2026-01-21)
 
 
