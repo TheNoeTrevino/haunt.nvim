@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.4.0...v0.4.1) (2026-01-21)
+
+
+### Bug Fixes
+
+* auto assign when its author ([ae2f00a](https://github.com/TheNoeTrevino/haunt.nvim/commit/ae2f00a145a709dacbce4d69653525bac4801a7b))
+* remove duplicate function definitions ([b9ea1bd](https://github.com/TheNoeTrevino/haunt.nvim/commit/b9ea1bda4dc1aff727723db4830dd36d4e958f73))
+
 ## [0.4.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.3.0...v0.4.0) (2026-01-21)
 
 
