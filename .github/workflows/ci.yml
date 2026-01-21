@@ -16,3 +16,16 @@ jobs:
     with:
       plugin: haunt.nvim
       repo: thenoetrevino/haunt.nvim
+      docs: false
+
+  docs:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: folke/github/neovim@main
+      - name: Generate docs with mini.doc
+        run: nvim --headless -c "luafile scripts/minidoc.lua" -c "qa"
+      - uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore(build): auto-generated vimdocs"
