@@ -37,12 +37,12 @@ describe("haunt.persistence", function()
 			assert.is_string(path)
 		end)
 
-	it("matches hash.json pattern", function()
-		local path = persistence.get_storage_path()
-		local hash = path:match("([0-9a-f]+)%.json$")
-		assert.is_not_nil(hash)
-		assert.are.equal(12, #hash)
-	end)
+		it("matches hash.json pattern", function()
+			local path = persistence.get_storage_path()
+			local hash = path:match("([0-9a-f]+)%.json$")
+			assert.is_not_nil(hash)
+			assert.are.equal(12, #hash)
+		end)
 
 		it("returns consistent path across calls", function()
 			local path1 = persistence.get_storage_path()
@@ -161,7 +161,10 @@ describe("haunt.persistence", function()
 		it("handles large bookmark sets (100 bookmarks)", function()
 			local bookmarks = {}
 			for i = 1, 100 do
-				table.insert(bookmarks, persistence.create_bookmark("/tmp/file" .. i .. ".lua", i, i % 2 == 0 and ("Note " .. i) or nil))
+				table.insert(
+					bookmarks,
+					persistence.create_bookmark("/tmp/file" .. i .. ".lua", i, i % 2 == 0 and ("Note " .. i) or nil)
+				)
 			end
 
 			local save_ok = persistence.save_bookmarks(bookmarks, test_file)
