@@ -10,7 +10,8 @@
 --- `:HauntDelete` - Delete bookmark at current line
 --- `:HauntNext` - Jump to next bookmark
 --- `:HauntPrev` - Jump to previous bookmark
---- `:HauntList` - Open interactive picker to browse all bookmarks
+--- `:HauntList` - Open interactive picker to browse all bookmarks (Snacks.nvim)
+--- `:HauntTelescope` - Open interactive picker to browse all bookmarks (Telescope)
 --- `:HauntClear` - Clear all bookmarks in current buffer
 --- `:HauntClearAll` - Clear all bookmarks across all files
 ---
@@ -55,10 +56,15 @@ for name, info in pairs(commands) do
 	end, { desc = info.desc, nargs = info.has_args and "?" or 0 })
 end
 
--- Special case for HauntList (uses picker)
+-- Special case for HauntList (uses Snacks picker)
 vim.api.nvim_create_user_command("HauntList", function()
 	require("haunt.picker").show()
-end, { desc = "List all bookmarks" })
+end, { desc = "List all bookmarks (Snacks)" })
+
+-- Telescope picker
+vim.api.nvim_create_user_command("HauntTelescope", function()
+	require("haunt.telescope").show()
+end, { desc = "List all bookmarks (Telescope)" })
 
 -- Deferred restoration setup. Dashboard plugins seemingly block this
 vim.api.nvim_create_autocmd("UIEnter", {

@@ -57,6 +57,7 @@
 ---   :HauntToggle
 ---   :HauntDelete
 ---   :HauntList
+---   :HauntTelescope
 ---   :HauntClear
 ---   :HauntClearAll
 ---   :HauntQf
@@ -90,9 +91,13 @@
 ---   vim.keymap.set('n', 'mC', function() require('haunt.api').clear_all() end,
 ---     { desc = "Clear all bookmarks" })
 ---
----   -- List bookmarks
+---   -- List bookmarks (Snacks picker)
 ---   vim.keymap.set('n', 'ml', function() require('haunt.picker').show() end,
----     { desc = "List bookmarks" })
+---     { desc = "List bookmarks (Snacks)" })
+---
+---   -- List bookmarks (Telescope picker)
+---   vim.keymap.set('n', 'mL', function() require('haunt.telescope').show() end,
+---     { desc = "List bookmarks (Telescope)" })
 --- <
 ---
 --- # Persistence ~
@@ -131,8 +136,9 @@
 ---
 --- Picker not working: ~
 ---
---- The picker requires Snacks.nvim (https://github.com/folke/snacks.nvim).
---- Install it via your plugin manager.
+--- The Snacks picker requires Snacks.nvim (https://github.com/folke/snacks.nvim).
+--- The Telescope picker requires telescope.nvim (https://github.com/nvim-telescope/telescope.nvim).
+--- Install either via your plugin manager and use :HauntList or :HauntTelescope.
 
 ---@class HauntModule
 ---@field _has_potential_bookmarks fun(): boolean
