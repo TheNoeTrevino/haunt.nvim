@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.4.1...v0.4.2) (2026-01-21)
+
+
+### Bug Fixes
+
+* ci ([5ca1ae7](https://github.com/TheNoeTrevino/haunt.nvim/commit/5ca1ae7d729a5e810d4f73cde6220792f7363884))
+* ci ([bcb835e](https://github.com/TheNoeTrevino/haunt.nvim/commit/bcb835e9ab5898f567b1e9bb618f6c8dd9979c4b))
+* readme ([0a53693](https://github.com/TheNoeTrevino/haunt.nvim/commit/0a53693991b9956ec4879d03fc1e755b621d3c16))
+* stylua ([31c744c](https://github.com/TheNoeTrevino/haunt.nvim/commit/31c744c1761bc9a01df613269d6a2d0ef48d5719))
+
 ## [0.4.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.4.0...v0.4.1) (2026-01-21)
 
 
