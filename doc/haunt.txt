@@ -59,6 +59,8 @@ Or use the provided commands: >vim
   :HauntList
   :HauntClear
   :HauntClearAll
+  :HauntQf
+  :HauntQfAll
 <
 
 # Recommended Keymaps ~
@@ -240,7 +242,7 @@ Fields ~
 {line_hl} `(optional)` `(string|nil)` The highlight group for the entire line (default: nil)
 {virt_text_pos} `(optional)` `(string)` Position of virtual text: "eol" (default), "eol_right_align", "overlay", "right_align", "inline"
 {data_dir} `(optional)` `(string|nil)` Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
-{picker_keys} `(optional)` `(table<string, table>)` Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
+{picker_keys} `(table<string, table>)` Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
 
 ------------------------------------------------------------------------------
                                                                    *user_config*
@@ -279,6 +281,8 @@ Fields ~
 {next} `(fun(): boolean)`
 {prev} `(fun(): boolean)`
 {delete_by_id} `(fun(bookmark_id: string): boolean)`
+{to_quickfix} `(fun(opts?: QuickfixOpts): boolean)`
+{yank_locations} `(fun(opts?: SidekickOpts): boolean)`
 {cleanup_buffer_tracking} `(fun(bufnr: number))`
 {_reset_for_testing} `(fun())`
 
@@ -438,6 +442,36 @@ Usage ~
   if #bookmarks > 0 then
     require('haunt.api').delete_by_id(bookmarks[1].id)
   end
+<
+------------------------------------------------------------------------------
+                                                               *M.to_quickfix()*
+                            `M.to_quickfix`({opts})
+Populate the quickfix list with haunt bookmarks.
+
+Parameters ~
+{opts} `(optional)` `(QuickfixOpts)` Options for filtering and formatting
+Return ~
+`(boolean)` success True if the quickfix list was updated
+
+------------------------------------------------------------------------------
+                                                            *M.yank_locations()*
+                           `M.yank_locations`({opts})
+Yank bookmark locations to the system clipboard.
+
+Copies all bookmarks formatted for sidekick.nvim to the unnamedplus register.
+Useful for users who want to share bookmark locations without sidekick.nvim.
+
+Parameters ~
+{opts} `(optional)` `(SidekickOpts)` Options for filtering and formatting
+Return ~
+`(boolean)` success True if yank was successful
+
+Usage ~
+>lua
+  require('haunt.api').yank_locations()
+
+  -- Yank only current buffer bookmarks
+  require('haunt.api').yank_locations({ current_buffer = true })
 <
 ------------------------------------------------------------------------------
                                                              *M.get_bookmarks()*
@@ -722,7 +756,7 @@ The keybindings can be customized via |HauntConfig|.picker_keys.
 
 ------------------------------------------------------------------------------
                                                                       *M.show()*
-                                   `M.show`()
+                                `M.show`({opts})
 Open the bookmark picker.
 
 Displays all bookmarks in an interactive picker powered by Snacks.nvim.
@@ -733,6 +767,9 @@ Usage ~
   -- Show the picker
   require('haunt.picker').show()
 
+Parameters ~
+{opts} `(optional)` `(snacks.picker.Config)` Options to pass to Snacks.picker
+
 
 ==============================================================================
 ------------------------------------------------------------------------------
@@ -742,6 +779,12 @@ Usage ~
 
 Integration with sidekick.nvim (https://github.com/folke/sidekick.nvim).
 Provides bookmark locations in a format compatible with sidekick's location system.
+
+------------------------------------------------------------------------------
+Class ~
+{SidekickModule}
+Fields ~
+{get_locations} `(fun(opts?: SidekickOpts): string)`
 
 ------------------------------------------------------------------------------
 Class ~
@@ -768,7 +811,7 @@ Usage ~
   -- Get all bookmarks
   local sidekick = require('haunt.sidekick')
   local locations = sidekick.get_locations()
-  
+
   -- Get only current buffer bookmarks
   local current = sidekick.get_locations({ current_buffer = true })
 
@@ -789,6 +832,21 @@ haunt.nvim provides the following user commands:
 `:HauntList` - Open interactive picker to browse all bookmarks
 `:HauntClear` - Clear all bookmarks in current buffer
 `:HauntClearAll` - Clear all bookmarks across all files
+
+------------------------------------------------------------------------------
+Class ~
+{HauntCommandInfo}
+Fields ~
+{fn} `(string)`
+{desc} `(string)`
+{has_args} `(optional)` `(boolean)`
+{args} `(optional)` `(table)`
+
+------------------------------------------------------------------------------
+                                                                      *commands*
+                                   `commands`
+Type ~
+`(table<string, HauntCommandInfo>)`
 
 
  vim:tw=78:ts=8:noet:ft=help:norl:

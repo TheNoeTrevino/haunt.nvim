@@ -28,13 +28,16 @@ M.save_bookmarks()	haunt.txt	/*M.save_bookmarks()*
 M.set_data_dir()	haunt.txt	/*M.set_data_dir()*
 M.setup()	haunt.txt	/*M.setup()*
 M.show()	haunt.txt	/*M.show()*
+M.to_quickfix()	haunt.txt	/*M.to_quickfix()*
 M.toggle_all_lines()	haunt.txt	/*M.toggle_all_lines()*
 M.toggle_annotation()	haunt.txt	/*M.toggle_annotation()*
+M.yank_locations()	haunt.txt	/*M.yank_locations()*
 _cache_time	haunt.txt	/*_cache_time*
 _git_info_cache	haunt.txt	/*_git_info_cache*
 _git_warning_shown	haunt.txt	/*_git_warning_shown*
 _initialized	haunt.txt	/*_initialized*
 cleanup_bookmark_visuals()	haunt.txt	/*cleanup_bookmark_visuals()*
+commands	haunt.txt	/*commands*
 create_and_persist_bookmark()	haunt.txt	/*create_and_persist_bookmark()*
 generate_bookmark_id()	haunt.txt	/*generate_bookmark_id()*
 get_git_branch()	haunt.txt	/*get_git_branch()*
