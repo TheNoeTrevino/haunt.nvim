@@ -2,6 +2,7 @@
 ---@field normalize_filepath fun(path: string): string
 ---@field validate_buffer_for_bookmarks fun(bufnr: number): boolean, string|nil
 ---@field ensure_buffer_for_file fun(filepath: string): number|nil, string|nil
+---@field toggle_quickfix fun(): nil
 
 ---@type UtilsModule
 ---@diagnostic disable-next-line: missing-fields
@@ -78,6 +79,16 @@ function M.ensure_buffer_for_file(filepath)
 	end
 
 	return bufnr, nil
+end
+
+function M.toggle_quickfix()
+	for _, w in ipairs(vim.fn.getwininfo()) do
+		if w.quickfix == 1 then
+			vim.cmd("cclose")
+			return
+		end
+	end
+	vim.cmd("copen")
 end
 
 return M

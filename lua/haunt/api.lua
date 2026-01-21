@@ -661,6 +661,8 @@ function M.to_quickfix(opts)
 		items = items,
 	})
 
+	utils.toggle_quickfix()
+
 	return true
 end
 
