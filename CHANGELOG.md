@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.2.0...v0.3.0) (2026-01-21)
+
+
+### Features
+
+* add quickfix user commands ([6b9333c](https://github.com/TheNoeTrevino/haunt.nvim/commit/6b9333c9a74276e8cbffad4760acd39fb2412dd7))
+
+
+### Bug Fixes
+
+* toggle quickfix when sent to quickfix ([209eef0](https://github.com/TheNoeTrevino/haunt.nvim/commit/209eef0a3c91f9391a91a7af26fde87d673fadd4))
+
 ## [0.2.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.1.0...v0.2.0) (2026-01-21)
 
 
