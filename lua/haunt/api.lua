@@ -745,7 +745,7 @@ function M.has_bookmarks()
 	return store.has_bookmarks()
 end
 
---- Load bookmarks from persistent storage.
+--- Load bookmarks from persistent storage. (Disk)
 ---
 --- This is called automatically when needed. You typically don't need
 --- to call this manually unless you want to reload bookmarks from disk.
