@@ -134,8 +134,10 @@ haunt.prev()
 --
 -- Displays all bookmarks in an interactive picker powered by Snacks.nvim.
 -- Allows jumping to, deleting, or editing bookmark annotations.
+-- Accepts optional snacks.picker.Config to customize the picker
 -- see :h haunt-picker for more info, and the snacks section below
 haunt_picker.show()
+haunt_picker.show({ layout = { preset = "vscode" } })
 
 -- Get bookmark locations formatted for sidekick.nvim.
 -- Returns bookmarks in sidekick-compatible format:

@@ -169,7 +169,7 @@ end
 ---   -- Show the picker
 ---   require('haunt.picker').show()
 ---<
----@param opts? table Options to pass to Snacks.picker
+---@param opts? snacks.picker.Config Options to pass to Snacks.picker
 function M.show(opts)
 	ensure_modules()
 	---@cast api -nil
@@ -212,6 +212,7 @@ function M.show(opts)
 		list_keys[key] = { "edit_annotation", mode = mode }
 	end
 
+	---@type snacks.picker.Config
 	local picker_opts = {
 		title = "Hauntings",
 		-- Use a finder function so picker:refresh() works correctly
