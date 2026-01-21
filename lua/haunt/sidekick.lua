@@ -7,7 +7,13 @@
 --- Provides bookmark locations in a format compatible with sidekick's location system.
 ---
 
+---@class SidekickModule
+---@field get_locations fun(opts?: SidekickOpts): string
+---@field yank_locations fun(opts?: SidekickOpts): boolean
+
 ---@private
+---@type SidekickModule
+---@diagnostic disable-next-line: missing-fields
 local M = {}
 
 ---@class SidekickOpts

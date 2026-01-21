@@ -25,6 +25,7 @@
 ---@field prev fun(): boolean
 ---@field delete_by_id fun(bookmark_id: string): boolean
 ---@field to_quickfix fun(opts?: QuickfixOpts): boolean
+---@field yank_locations fun(opts?: SidekickOpts): boolean
 ---@field cleanup_buffer_tracking fun(bufnr: number)
 ---@field _reset_for_testing fun()
 
@@ -58,6 +59,9 @@ local navigation = nil
 ---@private
 ---@type RestorationModule|nil
 local restoration = nil
+---@private
+---@type SidekickModule|nil
+local sidekick = nil
 
 ---@private
 local function ensure_modules()
@@ -75,6 +79,9 @@ local function ensure_modules()
 	end
 	if not restoration then
 		restoration = require("haunt.restoration")
+	end
+	if not sidekick then
+		sidekick = require("haunt.sidekick")
 	end
 end
 
@@ -662,6 +669,26 @@ function M.to_quickfix(opts)
 	})
 
 	return true
+end
+
+--- Yank bookmark locations to the system clipboard.
+---
+--- Copies all bookmarks formatted for sidekick.nvim to the unnamedplus register.
+--- Useful for users who want to share bookmark locations without sidekick.nvim.
+---
+---@param opts? SidekickOpts Options for filtering and formatting
+---@return boolean success True if yank was successful
+---
+---@usage >lua
+---   require('haunt.api').yank_locations()
+---
+---   -- Yank only current buffer bookmarks
+---   require('haunt.api').yank_locations({ current_buffer = true })
+--- <
+function M.yank_locations(opts)
+	ensure_modules()
+	---@cast sidekick -nil
+	return sidekick.yank_locations(opts)
 end
 
 --- Get all bookmarks as a deep copy.
