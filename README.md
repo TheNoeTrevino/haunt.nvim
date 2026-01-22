@@ -165,6 +165,13 @@ haunt_picker.show({ layout = { preset = "vscode" } })
 -- see :h haunt-sidekick for more info, and the sidekick section below
 haunt_sk.get_locations()
 haunt_sk.get_locations({current_buffer = true})
+
+--- Change the data directory and reload all bookmarks.
+---
+--- Saves current bookmarks to the old data_dir, clears all visual elements,
+--- then loads bookmarks from the new location and restores visuals.
+--- This is useful for autocommands that need to switch bookmark contexts.
+haunt.change_data_dir()
 ```
 
 Or you can use the user commands: 
