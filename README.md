@@ -2,6 +2,7 @@
 
 ![IMG_0236(1)](https://github.com/user-attachments/assets/de341829-817b-4276-8e72-bb6bf61261b1)
 
+
 Hear the ghosts tell you where you were, and why you were there.
 
 Bring back the past with haunt.nvim!
@@ -9,6 +10,25 @@ Bring back the past with haunt.nvim!
 Annotate your codebase with ghost text. Search through the history that _you_ choose.
 
 Keep your mental overhead to a minimum and never repeatedly rummage through your codebase again.
+
+<!--toc:start-->
+- [`haunt.nvim` 👻](#hauntnvim-👻)
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [API](#api)
+    - [User Commands](#user-commands)
+  - [Integrations](#integrations)
+    - [snacks.nvim](#snacksnvim)
+    - [sidekick.nvim](#sidekicknvim)
+    - [Git](#git)
+    - [Project-Specific Bookmarks](#project-specific-bookmarks)
+  - [Why?](#why)
+  - [Acknowledgements](#acknowledgements)
+  - [Similar Plugins](#similar-plugins)
+<!--toc:end-->
+
 
 ## Features
 
@@ -115,6 +135,8 @@ return {
 
 ## Usage
 
+### API
+
 https://github.com/user-attachments/assets/717ccc85-a14f-4dff-b496-b448750c33e1
 
 By default, haunt.nvim provides ***no default keymaps***. You will have to set them up yourself. See the installation section for an example.
@@ -174,6 +196,8 @@ haunt_sk.get_locations({current_buffer = true})
 haunt.change_data_dir("~/projects/myproject/.bookmarks/")
 haunt.change_data_dir(nil) -- reset to default
 ```
+
+### User Commands
 
 Or you can use the user commands: 
 `HauntAnnotate`
