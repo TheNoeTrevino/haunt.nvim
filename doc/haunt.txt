@@ -745,9 +745,10 @@ Validate a bookmark structure
 # Picker ~
 
 The picker provides an interactive interface to browse and manage bookmarks.
-Requires Snacks.nvim (https://github.com/folke/snacks.nvim).
+Uses Snacks.nvim (https://github.com/folke/snacks.nvim) if available,
+otherwise falls back to vim.ui.select for basic functionality.
 
-Picker actions: ~
+Picker actions (Snacks.nvim only): ~
   - `<CR>`: Jump to the selected bookmark
   - `d` (normal mode): Delete the selected bookmark
   - `a` (normal mode): Edit the bookmark's annotation
@@ -760,7 +761,8 @@ The keybindings can be customized via |HauntConfig|.picker_keys.
 Open the bookmark picker.
 
 Displays all bookmarks in an interactive picker powered by Snacks.nvim.
-Allows jumping to, deleting, or editing bookmark annotations.
+Allows jumping to, deleting, or editing bookmark annotations (Snacks.nvim only).
+Falls back to vim.ui.select if Snacks.nvim is not available.
 
 Usage ~
 >lua
