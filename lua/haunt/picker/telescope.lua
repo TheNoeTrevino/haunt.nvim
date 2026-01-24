@@ -53,6 +53,9 @@ function M.show(opts)
 	local action_state = require("telescope.actions.state")
 	local entry_display = require("telescope.pickers.entry_display")
 
+	-- Try to load nvim-web-devicons for file icons
+	local has_devicons, devicons = pcall(require, "nvim-web-devicons")
+
 	local api = utils.get_api()
 	local haunt = utils.get_haunt()
 
@@ -73,14 +76,18 @@ function M.show(opts)
 	local max_filename_width = 0
 	local max_line_width = 0
 	for _, item in ipairs(items) do
-		local filename = vim.fn.fnamemodify(item.file, ":t")
-		max_filename_width = math.max(max_filename_width, #filename)
+		local relpath = vim.fn.fnamemodify(item.file, ":.")
+		max_filename_width = math.max(max_filename_width, #relpath)
 		max_line_width = math.max(max_line_width, #tostring(item.line))
 	end
+
+	-- Icon width (icon + space)
+	local icon_width = has_devicons and 2 or 0
 
 	local displayer = entry_display.create({
 		separator = " ",
 		items = {
+			{ width = icon_width },
 			{ width = max_filename_width },
 			{ width = max_line_width + 1 },
 			{ remaining = true },
@@ -89,11 +96,15 @@ function M.show(opts)
 
 	-- Custom display function for bookmark entries
 	local make_display = function(entry)
+		local relpath = vim.fn.fnamemodify(entry.value.file, ":.")
 		local filename = vim.fn.fnamemodify(entry.value.file, ":t")
-		local dir = vim.fn.fnamemodify(vim.fn.fnamemodify(entry.value.file, ":."), ":h")
-		local dir_display = ""
-		if dir ~= "." then
-			dir_display = " " .. dir .. "/"
+
+		-- Get file icon and highlight
+		local icon, icon_hl = "", nil
+		if has_devicons then
+			local ext = vim.fn.fnamemodify(filename, ":e")
+			icon, icon_hl = devicons.get_icon(filename, ext, { default = true })
+			icon = icon or ""
 		end
 
 		local note_display = ""
@@ -101,11 +112,12 @@ function M.show(opts)
 			note_display = " " .. entry.value.note
 		end
 
-		-- Format: filename :line directory/ note
+		-- Format: [icon] [relpath] :line [note]
 		return displayer({
-			{ filename, "TelescopeResultsIdentifier" },
+			{ icon, icon_hl },
+			{ relpath, "TelescopeResultsIdentifier" },
 			{ ":" .. tostring(entry.value.line), "TelescopeResultsNumber" },
-			{ dir_display .. note_display, "TelescopeResultsComment" },
+			{ note_display, "TelescopeResultsComment" },
 		})
 	end
 
