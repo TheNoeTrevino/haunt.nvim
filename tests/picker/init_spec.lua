@@ -11,11 +11,29 @@ describe("haunt.picker", function()
 	-- Mock Snacks.nvim picker
 	local mock_snacks
 
+	-- Mock fzf-lua
+	local mock_fzf
+
 	-- Mock vim functions
 	local original_notify
 	local original_ui_select
 	local notifications
 	local ui_select_calls
+
+	-- Create mock fzf-lua
+	local function create_mock_fzf()
+		local mock = {
+			fzf_exec_called = false,
+			fzf_exec_items = nil,
+			fzf_exec_opts = nil,
+		}
+		mock.fzf_exec = function(items, opts)
+			mock.fzf_exec_called = true
+			mock.fzf_exec_items = items
+			mock.fzf_exec_opts = opts
+		end
+		return mock
+	end
 
 	-- Create mock Snacks picker
 	local function create_mock_snacks()
@@ -45,6 +63,7 @@ describe("haunt.picker", function()
 		helpers.reset_modules()
 		package.loaded["snacks"] = nil
 		package.loaded["telescope"] = nil
+		package.loaded["fzf-lua"] = nil
 
 		-- Setup mocks
 		mock_snacks = create_mock_snacks()
@@ -75,6 +94,7 @@ describe("haunt.picker", function()
 		vim.ui.select = original_ui_select
 		package.loaded["snacks"] = nil
 		package.loaded["telescope"] = nil
+		package.loaded["fzf-lua"] = nil
 	end)
 
 	describe("picker config option", function()
@@ -135,6 +155,45 @@ describe("haunt.picker", function()
 				end
 			end
 			assert.is_true(has_warning)
+		end)
+
+		it("warns when fzf-lua is not available and picker is 'fzf'", function()
+			haunt.setup({ picker = "fzf" })
+			picker = require("haunt.picker")
+
+			picker.show()
+
+			local has_warning = false
+			for _, notif in ipairs(notifications) do
+				if notif.msg:match("fzf%-lua is not available") then
+					has_warning = true
+					break
+				end
+			end
+			assert.is_true(has_warning)
+		end)
+
+		it("uses fzf when picker is set to 'fzf'", function()
+			mock_fzf = create_mock_fzf()
+			package.loaded["fzf-lua"] = mock_fzf
+			haunt.setup({ picker = "fzf" })
+			picker = require("haunt.picker")
+
+			picker.show()
+
+			assert.is_true(mock_fzf.fzf_exec_called)
+		end)
+
+		it("uses fzf in auto mode when snacks and telescope unavailable", function()
+			mock_fzf = create_mock_fzf()
+			package.loaded["fzf-lua"] = mock_fzf
+			haunt.setup({ picker = "auto" })
+			picker = require("haunt.picker")
+
+			picker.show()
+
+			assert.is_true(mock_fzf.fzf_exec_called)
+			assert.are.equal(0, #ui_select_calls)
 		end)
 
 		it("falls back to vim.ui.select in auto mode when no picker available", function()
