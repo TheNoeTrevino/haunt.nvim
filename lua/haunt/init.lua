@@ -131,8 +131,10 @@
 ---
 --- Picker not working: ~
 ---
---- The picker requires Snacks.nvim (https://github.com/folke/snacks.nvim).
---- Install it via your plugin manager.
+--- The picker supports Snacks.nvim (https://github.com/folke/snacks.nvim)
+--- and Telescope.nvim (https://github.com/nvim-telescope/telescope.nvim).
+--- Install one via your plugin manager, or configure which to use via
+--- the `picker` option: "snacks", "telescope", or "auto" (default).
 
 ---@class HauntModule
 ---@field _has_potential_bookmarks fun(): boolean
