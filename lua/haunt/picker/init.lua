@@ -20,9 +20,6 @@
 ---
 --- The keybindings can be customized via |HauntConfig|.picker_keys.
 
----@class PickerRouter
----@field show fun(opts?: table) Show the bookmark picker
-
 ---@type PickerRouter
 ---@diagnostic disable-next-line: missing-fields
 local M = {}
