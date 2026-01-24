@@ -45,6 +45,41 @@ M.DEFAULT = {
 		delete = { key = "d", mode = { "n" } },
 		edit_annotation = { key = "a", mode = { "n" } },
 	},
+	-- Project root detection
+	root_detection = {
+		-- Respect LazyVim's vim.g.root_spec if available
+		respect_lazyvim = true,
+
+		-- Respect LSP root if available
+		respect_lsp = true,
+
+		-- Fallback markers (used when LazyVim/LSP not available)
+		markers = {
+			".git",
+			".projectroot",
+			"pyproject.toml",
+			"Cargo.toml",
+			"package.json",
+			"go.mod",
+			"Makefile",
+		},
+
+		-- Custom function (highest priority if provided)
+		-- function(bufnr) -> string|nil
+		custom_fn = nil,
+	},
+
+	-- Path storage options
+	storage = {
+		-- Use relative paths when possible
+		use_relative_paths = true,
+
+		-- Normalize home directory to ~
+		normalize_home = true,
+
+		-- Store both relative and absolute as backup during migration
+		store_backup_paths = true,
+	},
 }
 --minidoc_afterlines_end
 
