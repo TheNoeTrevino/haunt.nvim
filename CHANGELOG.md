@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.6.0...v0.6.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* **persistence:** use commit hash for detached HEAD states ([8c259d9](https://github.com/TheNoeTrevino/haunt.nvim/commit/8c259d9bc62bd8c38ea6aeaed34be78d6e972168))
+* **persistence:** use commit hash for detached HEAD states ([e982389](https://github.com/TheNoeTrevino/haunt.nvim/commit/e982389438f4904251f148f21b61149a9d2bdcaa))
+
 ## [0.6.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.5.0...v0.6.0) (2026-01-24)
 
 
