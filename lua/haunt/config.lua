@@ -43,12 +43,12 @@ M.DEFAULT = {
 	line_hl = nil,
 	virt_text_pos = "eol",
 	data_dir = nil,
+	per_branch_bookmarks = true,
 	picker = "auto",
 	picker_keys = {
 		delete = { key = "d", mode = { "n" } },
 		edit_annotation = { key = "a", mode = { "n" } },
 	},
-	per_branch_bookmarks = true,
 }
 --minidoc_afterlines_end
 
