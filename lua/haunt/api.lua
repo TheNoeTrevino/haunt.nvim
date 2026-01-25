@@ -36,6 +36,7 @@
 local M = {}
 
 local utils = require("haunt.utils")
+local input = require("haunt.input")
 
 ---@private
 ---@type boolean
@@ -457,9 +458,24 @@ function M.annotate(text)
 	local annotation = text
 	if not annotation then
 		local default_text = existing_bookmark and existing_bookmark.note or ""
-		annotation = vim.fn.input({
+		return input.prompt_annotation({
 			prompt = " Annotation: ",
 			default = default_text,
+			title = existing_bookmark and "Edit Annotation" or "New Annotation",
+			on_confirm = function(value)
+				if existing_bookmark then
+					local success = update_bookmark_annotation(bufnr, line, existing_bookmark, value)
+					if success then
+						vim.notify("haunt.nvim: Annotation updated", vim.log.levels.INFO)
+					end
+					return
+				end
+
+				local success = create_and_persist_bookmark(bufnr, filepath, line, value)
+				if success then
+					vim.notify("haunt.nvim: Annotation created", vim.log.levels.INFO)
+				end
+			end,
 		})
 	end
 

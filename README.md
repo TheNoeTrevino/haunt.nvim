@@ -66,6 +66,15 @@ return {
     line_hl = nil,
     virt_text_pos = "eol",
     data_dir = nil,
+    annotation_input = {
+      provider = "auto", -- "auto", "snacks", or "vim_fn"
+      position = "cursor", -- "cursor", "top_left", "top_right", "bottom_left", "bottom_right", "center"
+      width = 45,
+      minheight = 6,
+      maxheight = 12,
+      save_keys = { "<CR>" }, -- normal mode save/exit keys
+      quit_keys = { "q", "<Esc>" }, -- normal mode quit without saving
+    },
     per_branch_bookmarks = true,
     picker = "auto", -- "auto", "snacks", "telescope", or "fzf"
     picker_keys = { -- picker agnostic, we got you covered
