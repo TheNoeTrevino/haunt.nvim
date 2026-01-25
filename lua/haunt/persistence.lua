@@ -119,12 +119,37 @@ function M.get_git_info()
 	return result
 end
 
---- Generates a storage path for the current git repository and branch
+--- Generates a storage path that's stable across project moves
+--- Uses git remote URL for git repos, normalized path with ~ for non-git
 ---@return string path The full path to the storage file
 function M.get_storage_path()
-	local repo_root = get_git_root() or vim.fn.getcwd()
 	local branch = get_git_branch() or "__default__"
-	local key = repo_root .. "|" .. branch
+	local key
+
+	-- Try to use git remote URL (stable across moves)
+	local git_root = get_git_root()
+	if git_root then
+		local remote =
+			vim.fn.systemlist("git -C " .. vim.fn.shellescape(git_root) .. " remote get-url origin 2>/dev/null")[1]
+		if vim.v.shell_error == 0 and remote and remote ~= "" then
+			-- Normalize remote URL (remove .git, https://, git@, etc.)
+			remote = remote:gsub("%.git$", "")
+			remote = remote:gsub("^https://", "")
+			remote = remote:gsub("^git@", "")
+			remote = remote:gsub(":", "/")
+			key = remote .. "|" .. branch
+		else
+			-- Git repo but no remote - use directory name + branch
+			local dir_name = vim.fn.fnamemodify(git_root, ":t")
+			key = "local_git_" .. dir_name .. "|" .. branch
+		end
+	else
+		-- Not a git repo - use normalized path with ~
+		local paths = require("haunt.paths")
+		local normalized_cwd = paths.normalize_home(vim.fn.getcwd())
+		key = normalized_cwd .. "|" .. branch
+	end
+
 	local hash = vim.fn.sha256(key):sub(1, 12)
 	local data_dir = M.ensure_data_dir()
 	return data_dir .. hash .. ".json"
