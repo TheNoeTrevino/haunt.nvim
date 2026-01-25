@@ -49,6 +49,40 @@ describe("haunt.persistence", function()
 			local path2 = persistence.get_storage_path()
 			assert.are.equal(path1, path2)
 		end)
+
+		describe("per_branch_bookmarks config", function()
+			local config
+
+			before_each(function()
+				config = require("haunt.config")
+			end)
+
+			it("uses different paths when per_branch_bookmarks is true vs false", function()
+				config.setup({ per_branch_bookmarks = true })
+				local path_with_branch = persistence.get_storage_path()
+
+				helpers.reset_modules()
+				persistence = require("haunt.persistence")
+				config = require("haunt.config")
+
+				config.setup({ per_branch_bookmarks = false })
+				local path_without_branch = persistence.get_storage_path()
+
+				assert.are_not.equal(path_with_branch, path_without_branch)
+			end)
+
+			it("returns consistent path when per_branch_bookmarks is false", function()
+				config.setup({ per_branch_bookmarks = false })
+				local path1 = persistence.get_storage_path()
+				local path2 = persistence.get_storage_path()
+				assert.are.equal(path1, path2)
+			end)
+
+			it("defaults to per_branch_bookmarks = true", function()
+				local default_config = config.get()
+				assert.is_true(default_config.per_branch_bookmarks)
+			end)
+		end)
 	end)
 
 	describe("ensure_data_dir", function()

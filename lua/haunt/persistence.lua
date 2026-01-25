@@ -154,24 +154,23 @@ end
 --- Uses a 12-character SHA256 hash of "repo_root|branch" for the filename
 --- For detached HEAD states (e.g., tag checkouts), uses the short commit hash as identifier
 --- Falls back to CWD and "__default__" branch when not in a git repository
+--- When per_branch_bookmarks is false, only uses repo_root for the hash (bookmarks shared across branches)
 ---@return string path The full path to the storage file
 function M.get_storage_path()
-	-- Use git root if available, otherwise fall back to CWD
+	local config = require("haunt.config").get()
+	local data_dir = M.ensure_data_dir()
 	local repo_root = get_git_root() or vim.fn.getcwd()
 
-	-- Use git branch if available, otherwise fall back to "__default__"
+	-- Skip branch scoping if per_branch_bookmarks is disabled
+	if not config.per_branch_bookmarks then
+		local hash = vim.fn.sha256(repo_root):sub(1, 12)
+		return data_dir .. hash .. ".json"
+	end
+
 	local branch = get_git_branch() or "__default__"
-
-	-- Create hash key from repo_root and branch
 	local key = repo_root .. "|" .. branch
-
-	-- Generate 12-character hash using SHA256 (reduces collision risk)
 	local hash = vim.fn.sha256(key):sub(1, 12)
 
-	-- Ensure data directory exists
-	local data_dir = M.ensure_data_dir()
-
-	-- Return full path to storage file
 	return data_dir .. hash .. ".json"
 end
 
