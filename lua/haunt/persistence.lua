@@ -56,8 +56,8 @@ local function get_git_root()
 	return nil
 end
 
---- Gets the current git branch name
----@return string|nil branch The current git branch name, or nil if not in a git repo
+--- Gets the current git branch name or commit hash for detached HEAD
+---@return string|nil branch The current git branch name, short commit hash, or nil if not in a git repo
 local function get_git_branch()
 	local result = vim.fn.systemlist("git branch --show-current")
 	local exit_code = vim.v.shell_error
@@ -67,10 +67,17 @@ local function get_git_branch()
 	end
 
 	local branch = result[1]
-	if not branch or branch == "" then
-		return nil
+	if branch and branch ~= "" then
+		return branch
 	end
-	return branch
+
+	-- Detached HEAD (e.g., tag checkout): use short commit hash as identifier
+	local hash_result = vim.fn.systemlist("git rev-parse --short HEAD")
+	if vim.v.shell_error == 0 and hash_result[1] and hash_result[1] ~= "" then
+		return hash_result[1]
+	end
+
+	return nil
 end
 
 --- Set custom data directory
@@ -120,15 +127,20 @@ function M.get_git_info()
 end
 
 --- Generates a storage path that's stable across project moves
---- Uses git remote URL for git repos, normalized path with ~ for non-git
+--- Uses git remote URL for git repos (stable across moves), normalized path with ~ for non-git
+--- For detached HEAD states (e.g., tag checkouts), uses the short commit hash as identifier
+--- When per_branch_bookmarks is false, only uses repo_root for the hash (bookmarks shared across branches)
 ---@return string path The full path to the storage file
 function M.get_storage_path()
-	local branch = get_git_branch() or "__default__"
+	local config = require("haunt.config").get()
+	local data_dir = M.ensure_data_dir()
+	
+	-- Determine the key for hashing
 	local key
-
-	-- Try to use git remote URL (stable across moves)
 	local git_root = get_git_root()
+	
 	if git_root then
+		-- Try to use git remote URL (stable across moves)
 		local remote =
 			vim.fn.systemlist("git -C " .. vim.fn.shellescape(git_root) .. " remote get-url origin 2>/dev/null")[1]
 		if vim.v.shell_error == 0 and remote and remote ~= "" then
@@ -137,21 +149,25 @@ function M.get_storage_path()
 			remote = remote:gsub("^https://", "")
 			remote = remote:gsub("^git@", "")
 			remote = remote:gsub(":", "/")
-			key = remote .. "|" .. branch
+			key = remote
 		else
-			-- Git repo but no remote - use directory name + branch
+			-- Git repo but no remote - use directory name
 			local dir_name = vim.fn.fnamemodify(git_root, ":t")
-			key = "local_git_" .. dir_name .. "|" .. branch
+			key = "local_git_" .. dir_name
 		end
 	else
 		-- Not a git repo - use normalized path with ~
 		local paths = require("haunt.paths")
-		local normalized_cwd = paths.normalize_home(vim.fn.getcwd())
-		key = normalized_cwd .. "|" .. branch
+		key = paths.normalize_home(vim.fn.getcwd())
 	end
-
+	
+	-- Add branch to key if per_branch_bookmarks is enabled
+	if config.per_branch_bookmarks then
+		local branch = get_git_branch() or "__default__"
+		key = key .. "|" .. branch
+	end
+	
 	local hash = vim.fn.sha256(key):sub(1, 12)
-	local data_dir = M.ensure_data_dir()
 	return data_dir .. hash .. ".json"
 end
 

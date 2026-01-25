@@ -41,6 +41,12 @@ function M.reset_modules()
 	package.loaded["haunt.navigation"] = nil
 	package.loaded["haunt.restoration"] = nil
 	package.loaded["haunt.picker"] = nil
+	package.loaded["haunt.picker.init"] = nil
+	package.loaded["haunt.picker.utils"] = nil
+	package.loaded["haunt.picker.snacks"] = nil
+	package.loaded["haunt.picker.telescope"] = nil
+	package.loaded["haunt.picker.fzf"] = nil
+	package.loaded["haunt.picker.fallback"] = nil
 	package.loaded["haunt.sidekick"] = nil
 end
 

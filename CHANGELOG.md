@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.7.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.6.1...v0.7.0) (2026-01-25)
+
+
+### Features
+
+* opt out of branch scoped bookmarks ([2c20d9a](https://github.com/TheNoeTrevino/haunt.nvim/commit/2c20d9ad87cfb437b91d653a5f4e3a844eb592dc))
+* opt out of branch scoped bookmarks ([91bac92](https://github.com/TheNoeTrevino/haunt.nvim/commit/91bac92f8610daf71432331358639bbf0cf489e9))
+
+## [0.6.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.6.0...v0.6.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* **persistence:** use commit hash for detached HEAD states ([8c259d9](https://github.com/TheNoeTrevino/haunt.nvim/commit/8c259d9bc62bd8c38ea6aeaed34be78d6e972168))
+* **persistence:** use commit hash for detached HEAD states ([e982389](https://github.com/TheNoeTrevino/haunt.nvim/commit/e982389438f4904251f148f21b61149a9d2bdcaa))
+
+## [0.6.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.5.0...v0.6.0) (2026-01-24)
+
+
+### Features
+
+* **picker:** add fzf-lua picker implementation ([30a3f9d](https://github.com/TheNoeTrevino/haunt.nvim/commit/30a3f9d86e201ad08a56cc35fde50d38a404a139))
+* **picker:** add shared type definitions for picker interface ([4ca196f](https://github.com/TheNoeTrevino/haunt.nvim/commit/4ca196f4a81a511b20f02397408ef4d9f64cd64a))
+* **telescope:** add documentation ([c2be0a5](https://github.com/TheNoeTrevino/haunt.nvim/commit/c2be0a5296d1489b73f47b688d19750fdb22f88d))
+* **telescope:** add nain logic ([d82b87b](https://github.com/TheNoeTrevino/haunt.nvim/commit/d82b87b54c7706c2742c09b72cecd4f2a974912c))
+* **telescope:** add nvim-web-devicon for telescope ([ef817b4](https://github.com/TheNoeTrevino/haunt.nvim/commit/ef817b49e0c45c88fb635b50e340266711992de7))
+* **telescope:** add picker option ([3723fdd](https://github.com/TheNoeTrevino/haunt.nvim/commit/3723fdd383e2bb5fca0ebf5c73f973c1210c571b))
+* **telescope:** split test ([9f36da8](https://github.com/TheNoeTrevino/haunt.nvim/commit/9f36da8e339f1a2ac0a5704f51e4824aaacdc8c5))
+* **telescope:** update the inline style ([20ce805](https://github.com/TheNoeTrevino/haunt.nvim/commit/20ce8056aa0370728f0dec30a5c0710f4a12a525))
+
+
+### Bug Fixes
+
+* luacats diagnostics ([ddfa503](https://github.com/TheNoeTrevino/haunt.nvim/commit/ddfa50389fb75720f272e8238ab9369031f77d3f))
+
+
+### Performance Improvements
+
+* **picker:** cache path computations in build_picker_items ([46fd17e](https://github.com/TheNoeTrevino/haunt.nvim/commit/46fd17efac0fdb3696aba447ae2b08cfa97a0d64))
+
 ## [0.5.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.4.2...v0.5.0) (2026-01-23)
 
 

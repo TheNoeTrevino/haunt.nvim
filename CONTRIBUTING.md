@@ -28,15 +28,25 @@ return {
 ## Module Structure and Their Representations
 
 `api.lua` - Main user facing API. If something is specifically meant for user consumption, it should go here.
+
 `config.lua` - Any configuration options go here
+
 `display.lua` - Logic having to do with displaying/hiding anything: signs, annotations, highlights
+
 `init.lua` - Responsible for bootstrapping the plugin with as little overhead as possible
+
 `navigation.lua` - Moving between annotations.
+
 `persistence.lua` - Disk storage of bookmarks, and git caching logic. This is the 'outside of neovim' module
-`picker.lua` - Picker integrations, currently that is only [snacks.nvim](https://github.com/folke/snacks.nvim). 
-`sidekick.lua` - [Sidekick.nvim](https://github.com/folke/sidekick.nvim) integration 
-`restoration.lua` - Restoring annotations on buffer load
+
 `store.lua` - In memory operations on bookmarks
+
+`picker.lua` - Picker integrations, currently that is [snacks.nvim](https://github.com/folke/snacks.nvim) and [telescope](https://github.com/nvim-telescope/telescope.nvim). We have each picker implement the `PickerModule` interface. This makes referencing the different picker much easier, and only gives us what we need. Unfortunately, each picker has a different `opts` structure. Which means we can't really type the `opts` well in `picker.show(opts?)`. Oh well. 
+
+`sidekick.lua` - [Sidekick.nvim](https://github.com/folke/sidekick.nvim) integration 
+
+`restoration.lua` - Restoring annotations on buffer load
+
 `utils.lua` - various helper functions.
 
 Adhere to these separations as much as possible.
