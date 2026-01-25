@@ -134,11 +134,11 @@ end
 function M.get_storage_path()
 	local config = require("haunt.config").get()
 	local data_dir = M.ensure_data_dir()
-	
+
 	-- Determine the key for hashing
 	local key
 	local git_root = get_git_root()
-	
+
 	if git_root then
 		-- Try to use git remote URL (stable across moves)
 		local remote =
@@ -160,13 +160,13 @@ function M.get_storage_path()
 		local paths = require("haunt.paths")
 		key = paths.normalize_home(vim.fn.getcwd())
 	end
-	
+
 	-- Add branch to key if per_branch_bookmarks is enabled
 	if config.per_branch_bookmarks then
 		local branch = get_git_branch() or "__default__"
 		key = key .. "|" .. branch
 	end
-	
+
 	local hash = vim.fn.sha256(key):sub(1, 12)
 	return data_dir .. hash .. ".json"
 end
@@ -430,10 +430,8 @@ function M.load_bookmarks(filepath)
 	-- Get current project root for path resolution
 	local project_root, _ = detect_project_root()
 
-	-- Use stored project root if available, otherwise use detected
-	if data.project and data.project.root_absolute then
-		project_root = data.project.root_absolute
-	end
+	-- Always use detected project root for path resolution
+	-- (stored root is just metadata)
 
 	return storage_to_bookmarks(data, project_root)
 end
