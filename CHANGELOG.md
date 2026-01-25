@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.6.1...v0.7.0) (2026-01-25)
+
+
+### Features
+
+* opt out of branch scoped bookmarks ([2c20d9a](https://github.com/TheNoeTrevino/haunt.nvim/commit/2c20d9ad87cfb437b91d653a5f4e3a844eb592dc))
+* opt out of branch scoped bookmarks ([91bac92](https://github.com/TheNoeTrevino/haunt.nvim/commit/91bac92f8610daf71432331358639bbf0cf489e9))
+
 ## [0.6.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.6.0...v0.6.1) (2026-01-25)
 
 
