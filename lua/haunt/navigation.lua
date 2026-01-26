@@ -13,9 +13,23 @@ local utils = require("haunt.utils")
 local store = nil
 
 ---@private
-local function ensure_store()
+---@type HooksModule|nil
+local hooks = nil
+
+---@private
+---@type HauntEvents|nil
+local events = nil
+
+---@private
+local function ensure_modules()
 	if not store then
 		store = require("haunt.store")
+	end
+	if not hooks then
+		hooks = require("haunt.hooks")
+	end
+	if not events then
+		events = require("haunt.hook_events")
 	end
 end
 
@@ -23,8 +37,9 @@ end
 ---@param direction "next"|"prev"
 ---@return boolean success True if jumped to a bookmark
 local function navigate_bookmark(direction)
-	ensure_store()
+	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	local bufnr = vim.api.nvim_get_current_buf()
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
@@ -45,15 +60,27 @@ local function navigate_bookmark(direction)
 	end
 
 	-- closure to keep things tidy
-	---@param line number The line to jump to
-	local function jump_to(line)
+	---@param line number The line number to jump to
+	local function jump_to_line(line)
 		vim.cmd("normal! m'")
 		vim.api.nvim_win_set_cursor(0, { line, current_col })
 	end
 
+	---@param bookmark Bookmark The bookmark to navigate to
+	local function navigate_to_bookmark(bookmark)
+		jump_to_line(bookmark.line)
+		hooks.emit(events.onNavigation, {
+			bookmark = bookmark,
+			bufnr = bufnr,
+			direction = direction,
+			from_line = current_line,
+			to_line = bookmark.line,
+		})
+	end
+
 	if #file_bookmarks == 1 then
 		vim.notify("haunt.nvim: Only one bookmark in current buffer", vim.log.levels.INFO)
-		jump_to(file_bookmarks[1].line)
+		navigate_to_bookmark(file_bookmarks[1])
 		return true
 	end
 
@@ -63,19 +90,19 @@ local function navigate_bookmark(direction)
 	if is_next then
 		for _, bookmark in ipairs(file_bookmarks) do
 			if bookmark.line > current_line then
-				jump_to(bookmark.line)
+				navigate_to_bookmark(bookmark)
 				return true
 			end
 		end
-		jump_to(file_bookmarks[1].line)
+		navigate_to_bookmark(file_bookmarks[1])
 	else
 		for i = #file_bookmarks, 1, -1 do
 			if file_bookmarks[i].line < current_line then
-				jump_to(file_bookmarks[i].line)
+				navigate_to_bookmark(file_bookmarks[i])
 				return true
 			end
 		end
-		jump_to(file_bookmarks[#file_bookmarks].line)
+		navigate_to_bookmark(file_bookmarks[#file_bookmarks])
 	end
 
 	return true
