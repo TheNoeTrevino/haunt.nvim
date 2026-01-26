@@ -18,7 +18,7 @@
 ---   local hooks = require("haunt.hooks")
 ---   local events = require("haunt.hook_events")
 ---
----   hooks.register(events.onCreate, function(ctx)
+---   hooks.on(events.onCreate, function(ctx)
 ---     print("Created bookmark:", ctx.bookmark.id)
 ---   end)
 --- <
@@ -82,7 +82,7 @@ local event_handlers = {}
 ---@usage >lua
 ---   local hooks = require("haunt.hooks")
 ---   local events = require("haunt.hook_events")
----   hooks.register(events.onCreate, function(ctx)
+---   hooks.on(events.onCreate, function(ctx)
 ---     print("Bookmark at " .. ctx.file .. ":" .. ctx.line)
 ---   end)
 --- <
@@ -137,8 +137,8 @@ end
 ---@usage >lua
 ---   local events = require("haunt.hook_events")
 ---   local my_callback = function(ctx) ... end
----   hooks.register(events.onCreate, my_callback)
----   hooks.unregister(events.onCreate, my_callback)
+---   hooks.on(events.onCreate, my_callback)
+---   hooks.off(events.onCreate, my_callback)
 --- <
 function M.off(event, fn)
 	if not event_handlers[event] then
