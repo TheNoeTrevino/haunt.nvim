@@ -5,7 +5,6 @@
 ---
 --- Provides a configurable input prompt for annotations.
 
-
 ---@class HauntAnnotationInputRequest
 ---@field prompt string
 ---@field default string
@@ -59,6 +58,7 @@ local function build_win_config(position, width, height, minheight, maxheight)
 		maxheight = maxheight,
 	}
 
+	-- TODO: rename to cursor_above
 	if position == "cursor" then
 		win.relative = "cursor"
 		win.row = -height - 2
@@ -73,12 +73,15 @@ local function build_win_config(position, width, height, minheight, maxheight)
 		return win
 	end
 
+	-- TODO: this should be an object
 	local margin = 4
 	local rows = vim.o.lines
 	local cols = vim.o.columns
 	local row = margin - 3
 	local col = margin
 
+	-- TODO: we should pass in the object above and get back an object
+	-- The type should be the enum
 	if position == "top_right" then
 		col = math.max(margin, cols - width - margin)
 	elseif position == "bottom_left" then
@@ -91,6 +94,7 @@ local function build_win_config(position, width, height, minheight, maxheight)
 		col = math.max(margin, math.floor((cols - width) / 2))
 	end
 
+	-- TODO: object.row, o.col, etc...
 	win.relative = "editor"
 	win.row = row
 	win.col = col
@@ -127,6 +131,7 @@ function M.prompt_annotation(request)
 		vim.notify("haunt.nvim: Floating annotation input requires Snacks.nvim", vim.log.levels.WARN)
 	end
 
+	-- FIX: no type
 	local function handle_value(value)
 		local annotation = value or ""
 		if annotation == "" then
@@ -151,13 +156,15 @@ function M.prompt_annotation(request)
 			local save_keys = config.save_keys or {
 				{ key = "<CR>", mode = { "n", "i" } },
 			}
-			local quit_keys = config.quit_keys or {
-				{ key = "q", mode = { "n" } },
-				{ key = "<Esc>", mode = { "n" } },
-			}
+			local quit_keys = config.quit_keys
+				or {
+					{ key = "q", mode = { "n" } },
+					{ key = "<Esc>", mode = { "n" } },
+				}
 			local saved = false
 			local cancelled = false
 
+			-- FIX: no type
 			local function save_from_win(win_instance)
 				if saved then
 					return
@@ -170,6 +177,7 @@ function M.prompt_annotation(request)
 				handle_value("")
 			end
 
+			-- FIX: no type
 			local function save_and_close(win_instance)
 				save_from_win(win_instance)
 				if win_instance and win_instance.close then
@@ -177,6 +185,7 @@ function M.prompt_annotation(request)
 				end
 			end
 
+			-- FIX: no type
 			local function cancel_and_close(win_instance)
 				if cancelled then
 					return
@@ -190,22 +199,35 @@ function M.prompt_annotation(request)
 				end
 			end
 
+			-- FIX: no type
 			local keys = {}
 			for _, key_config in ipairs(save_keys) do
 				local key = key_config.key
 				local mode = key_config.mode or { "n", "i" }
-				table.insert(keys, { key, function(self)
-					save_and_close(self)
-				end, mode = mode, desc = "save" })
+				table.insert(keys, {
+					key,
+					function(self)
+						save_and_close(self)
+					end,
+					mode = mode,
+					desc = "save",
+				})
 			end
+			-- FIX: no type
 			for _, key_config in ipairs(quit_keys) do
 				local key = key_config.key
 				local mode = key_config.mode or { "n" }
-				table.insert(keys, { key, function(self)
-					cancel_and_close(self)
-				end, mode = mode, desc = "cancel" })
+				table.insert(keys, {
+					key,
+					function(self)
+						cancel_and_close(self)
+					end,
+					mode = mode,
+					desc = "cancel",
+				})
 			end
 
+			--- @alias Snacks.snacks.plugins.snacks.win
 			local win_opts = vim.tbl_deep_extend("force", win, {
 				title = { { " " .. title .. " ", "Title" } },
 				title_pos = "center",
