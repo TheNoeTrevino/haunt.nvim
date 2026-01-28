@@ -5,21 +5,6 @@
 ---
 --- Provides a configurable input prompt for annotations.
 
----@alias HauntAnnotationInputProvider "auto"|"snacks"|"vim_fn"
----@alias HauntAnnotationInputPosition "cursor"|"top_left"|"top_right"|"bottom_left"|"bottom_right"|"center"
-
----@class HauntAnnotationKeyConfig
----@field key string The key to bind
----@field mode string[] Modes in which the key is active (e.g., {"n", "i"})
-
----@class HauntAnnotationInputConfig
----@field provider? HauntAnnotationInputProvider Which input provider to use (default: "auto")
----@field position? HauntAnnotationInputPosition Input window position (default: "cursor")
----@field width? integer Fixed window width (default: 45)
----@field minheight? integer Minimum window height (default: 6)
----@field maxheight? integer Maximum window height (default: 12)
----@field save_keys? HauntAnnotationKeyConfig[] Keys that save + exit (default: {{key="<CR>", mode={"n","i"}}})
----@field quit_keys? HauntAnnotationKeyConfig[] Keys that quit without saving (default: {{key="q", mode={"n"}}, {key="<Esc>", mode={"n"}}})
 
 ---@class HauntAnnotationInputRequest
 ---@field prompt string
@@ -77,6 +62,13 @@ local function build_win_config(position, width, height, minheight, maxheight)
 	if position == "cursor" then
 		win.relative = "cursor"
 		win.row = -height - 2
+		win.col = 1
+		return win
+	end
+
+	if position == "cursor_below" then
+		win.relative = "cursor"
+		win.row = 1
 		win.col = 1
 		return win
 	end
@@ -238,9 +230,11 @@ function M.prompt_annotation(request)
 					if win_instance and win_instance.win then
 						vim.api.nvim_set_current_win(win_instance.win)
 					end
-					vim.cmd("startinsert")
+					vim.cmd("normal! G$")
+					vim.cmd("startinsert!")
 				end,
 				on_close = function(win_instance)
+					vim.cmd("stopinsert")
 					if not saved and not cancelled then
 						save_from_win(win_instance)
 					end

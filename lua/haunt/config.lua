@@ -18,7 +18,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 --- All fields are optional. Default values are shown below.
 ---
 ---@alias HauntAnnotationInputProvider "auto"|"snacks"|"vim_fn"
----@alias HauntAnnotationInputPosition "cursor"|"top_left"|"top_right"|"bottom_left"|"bottom_right"|"center"
+---@alias HauntAnnotationInputPosition "cursor"|"cursor_below"|"top_left"|"top_right"|"bottom_left"|"bottom_right"|"center"
 ---@class HauntAnnotationKeyConfig
 ---@field key string The key to bind
 ---@field mode string[] Modes in which the key is active (e.g., {"n", "i"})
