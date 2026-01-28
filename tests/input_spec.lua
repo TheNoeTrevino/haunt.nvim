@@ -35,7 +35,7 @@ describe("haunt.input", function()
 			win = function(opts)
 				called = true
 				assert.are.equal("Edit Annotation", opts.title)
-				assert.is_true(opts.footer_keys)
+				assert.is_false(opts.footer_keys)
 				assert.is_table(opts.keys)
 
 				local bufnr = vim.api.nvim_create_buf(false, true)
@@ -90,13 +90,18 @@ describe("haunt.input", function()
 		assert.is_true(called)
 	end)
 
-	it("shows configured save keys in footer", function()
+	it("maps configured save and quit keys correctly", function()
 		local haunt = require("haunt")
 		haunt.setup({
 			annotation_input = {
 				provider = "snacks",
-				save_keys = { "<CR>" },
-				quit_keys = { "q", "<Esc>" },
+				save_keys = {
+					{ key = "<CR>", mode = { "n", "i" } },
+				},
+				quit_keys = {
+					{ key = "q", mode = { "n" } },
+					{ key = "<Esc>", mode = { "n" } },
+				},
 			},
 		})
 		local input = require("haunt.input")
@@ -105,7 +110,7 @@ describe("haunt.input", function()
 		package.loaded["snacks"] = {
 			win = function(opts)
 				for _, mapping in ipairs(opts.keys or {}) do
-					key_map[mapping[1]] = mapping.desc
+					key_map[mapping[1]] = { desc = mapping.desc, mode = mapping.mode }
 				end
 				return { buf = vim.api.nvim_create_buf(false, true), close = function() end }
 			end,
@@ -114,12 +119,121 @@ describe("haunt.input", function()
 		input.prompt_annotation({
 			prompt = "Annotation: ",
 			default = "Test",
-			title = "Edit Annotation",
 			on_confirm = function() end,
 		})
 
-		assert.are.equal("cancel", key_map["q"])
-		assert.are.equal("cancel", key_map["<Esc>"])
-		assert.are.equal("save", key_map["<CR>"])
+		assert.is_table(key_map["<CR>"])
+		assert.are.equal("save", key_map["<CR>"].desc)
+		assert.is_true(vim.tbl_contains(key_map["<CR>"].mode, "n"))
+		assert.is_true(vim.tbl_contains(key_map["<CR>"].mode, "i"))
+
+		assert.are.equal("cancel", key_map["q"].desc)
+		assert.are.equal("cancel", key_map["<Esc>"].desc)
+	end)
+
+	it("save_keys work in both normal and insert mode", function()
+		local haunt = require("haunt")
+		haunt.setup({
+			annotation_input = {
+				provider = "snacks",
+				save_keys = {
+					{ key = "<CR>", mode = { "n", "i" } },
+				},
+			},
+		})
+		local input = require("haunt.input")
+		local key_modes = {}
+
+		package.loaded["snacks"] = {
+			win = function(opts)
+				for _, mapping in ipairs(opts.keys or {}) do
+					if mapping.desc == "save" then
+						key_modes[mapping[1]] = mapping.mode
+					end
+				end
+				return { buf = vim.api.nvim_create_buf(false, true), close = function() end }
+			end,
+		}
+
+		input.prompt_annotation({
+			prompt = "Annotation: ",
+			default = "Test",
+			on_confirm = function() end,
+		})
+
+		assert.is_table(key_modes["<CR>"])
+		assert.are.equal(2, #key_modes["<CR>"])
+		assert.is_true(vim.tbl_contains(key_modes["<CR>"], "n"))
+		assert.is_true(vim.tbl_contains(key_modes["<CR>"], "i"))
+	end)
+
+	it("allows custom key modes configuration", function()
+		local haunt = require("haunt")
+		haunt.setup({
+			annotation_input = {
+				provider = "snacks",
+				save_keys = {
+					{ key = "<C-s>", mode = { "i" } },
+				},
+				quit_keys = {
+					{ key = "q", mode = { "n" } },
+				},
+			},
+		})
+		local input = require("haunt.input")
+		local key_map = {}
+
+		package.loaded["snacks"] = {
+			win = function(opts)
+				for _, mapping in ipairs(opts.keys or {}) do
+					key_map[mapping[1]] = { desc = mapping.desc, mode = mapping.mode }
+				end
+				return { buf = vim.api.nvim_create_buf(false, true), close = function() end }
+			end,
+		}
+
+		input.prompt_annotation({
+			prompt = "Annotation: ",
+			default = "Test",
+			on_confirm = function() end,
+		})
+
+		assert.is_table(key_map["<C-s>"])
+		assert.are.equal("save", key_map["<C-s>"].desc)
+		assert.are.equal(1, #key_map["<C-s>"].mode)
+		assert.are.equal("i", key_map["<C-s>"].mode[1])
+	end)
+
+	it("supports multiple keys for same action", function()
+		local haunt = require("haunt")
+		haunt.setup({
+			annotation_input = {
+				provider = "snacks",
+				save_keys = {
+					{ key = "<CR>", mode = { "n", "i" } },
+					{ key = "<C-s>", mode = { "n", "i" } },
+				},
+			},
+		})
+		local input = require("haunt.input")
+		local key_map = {}
+
+		package.loaded["snacks"] = {
+			win = function(opts)
+				for _, mapping in ipairs(opts.keys or {}) do
+					key_map[mapping[1]] = { desc = mapping.desc, mode = mapping.mode }
+				end
+				return { buf = vim.api.nvim_create_buf(false, true), close = function() end }
+			end,
+		}
+
+		input.prompt_annotation({
+			prompt = "Annotation: ",
+			default = "Test",
+			on_confirm = function() end,
+		})
+
+		assert.are.equal("save", key_map["<CR>"].desc)
+		assert.are.equal("save", key_map["<C-s>"].desc)
 	end)
 end)
