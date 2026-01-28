@@ -72,8 +72,13 @@ return {
       width = 45,
       minheight = 6,
       maxheight = 12,
-      save_keys = { "<CR>" }, -- normal mode save/exit keys
-      quit_keys = { "q", "<Esc>" }, -- normal mode quit without saving
+      save_keys = {
+        { key = "<CR>", mode = { "n", "i" } }, -- save/exit (works in normal and insert mode)
+      },
+      quit_keys = {
+        { key = "q", mode = { "n" } },   -- cancel (normal mode only)
+        { key = "<Esc>", mode = { "n" } }, -- cancel (normal mode only)
+      },
     },
     per_branch_bookmarks = true,
     picker = "auto", -- "auto", "snacks", "telescope", or "fzf"
@@ -210,6 +215,8 @@ haunt_sk.get_locations({current_buffer = true})
 haunt.change_data_dir("~/projects/myproject/.bookmarks/")
 haunt.change_data_dir(nil) -- reset to default
 ```
+
+**Note:** When editing annotations, press `<CR>` (Enter) to save in both insert and normal mode. To insert newlines for multi-line annotations, press `<Esc>` to enter normal mode, then use `o` or `O` (standard Vim behavior).
 
 ### User Commands
 
