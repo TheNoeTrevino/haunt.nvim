@@ -38,6 +38,7 @@ function M.reset_modules()
 	package.loaded["haunt.config"] = nil
 	package.loaded["haunt.store"] = nil
 	package.loaded["haunt.utils"] = nil
+	package.loaded["haunt.input"] = nil
 	package.loaded["haunt.navigation"] = nil
 	package.loaded["haunt.restoration"] = nil
 	package.loaded["haunt.picker"] = nil

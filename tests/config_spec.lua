@@ -21,6 +21,14 @@ describe("haunt.config", function()
 			assert.are.equal(" 󰆉 ", cfg.annotation_prefix)
 			assert.is_nil(cfg.line_hl)
 			assert.are.equal("eol", cfg.virt_text_pos)
+			assert.is_table(cfg.annotation_input)
+			assert.are.equal("auto", cfg.annotation_input.provider)
+			assert.are.equal("cursor", cfg.annotation_input.position)
+			assert.are.equal(45, cfg.annotation_input.width)
+			assert.are.equal(6, cfg.annotation_input.minheight)
+			assert.are.equal(12, cfg.annotation_input.maxheight)
+			assert.are.same({ "<CR>" }, cfg.annotation_input.save_keys)
+			assert.are.same({ "q", "<Esc>" }, cfg.annotation_input.quit_keys)
 		end)
 
 		it("returns deep copy to prevent modification", function()
@@ -158,6 +166,34 @@ describe("haunt.config", function()
 			local cfg = config.get()
 			assert.are.equal("x", cfg.picker_keys.delete.key)
 			assert.are.equal("🔖", cfg.sign)
+		end)
+	end)
+
+	describe("nested configuration (annotation_input)", function()
+		it("preserves default input config when setup called", function()
+			config.setup({ sign = "🔖" })
+
+			local cfg = config.get()
+			assert.is_table(cfg.annotation_input)
+			assert.are.equal("auto", cfg.annotation_input.provider)
+		end)
+
+		it("merges input config deeply", function()
+			config.setup({
+				annotation_input = {
+					position = "bottom_right",
+					width = 80,
+				},
+			})
+
+			local cfg = config.get()
+			assert.are.equal("auto", cfg.annotation_input.provider)
+			assert.are.equal("bottom_right", cfg.annotation_input.position)
+			assert.are.equal(80, cfg.annotation_input.width)
+			assert.are.equal(6, cfg.annotation_input.minheight)
+			assert.are.equal(12, cfg.annotation_input.maxheight)
+			assert.are.same({ "<CR>" }, cfg.annotation_input.save_keys)
+			assert.are.same({ "q", "<Esc>" }, cfg.annotation_input.quit_keys)
 		end)
 	end)
 

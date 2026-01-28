@@ -66,6 +66,20 @@ return {
     line_hl = nil,
     virt_text_pos = "eol",
     data_dir = nil,
+    annotation_input = {
+      provider = "auto", -- "auto", "snacks", or "vim_fn"
+      position = "cursor", -- "cursor", "top_left", "top_right", "bottom_left", "bottom_right", "center"
+      width = 45,
+      minheight = 6,
+      maxheight = 12,
+      save_keys = {
+        { key = "<CR>", mode = { "n", "i" } }, -- save/exit (works in normal and insert mode)
+      },
+      quit_keys = {
+        { key = "q", mode = { "n" } },   -- cancel (normal mode only)
+        { key = "<Esc>", mode = { "n" } }, -- cancel (normal mode only)
+      },
+    },
     per_branch_bookmarks = true,
     picker = "auto", -- "auto", "snacks", "telescope", or "fzf"
     picker_keys = { -- picker agnostic, we got you covered
@@ -201,6 +215,8 @@ haunt_sk.get_locations({current_buffer = true})
 haunt.change_data_dir("~/projects/myproject/.bookmarks/")
 haunt.change_data_dir(nil) -- reset to default
 ```
+
+**Note:** When editing annotations, press `<CR>` (Enter) to save in both insert and normal mode. To insert newlines for multi-line annotations, press `<Esc>` to enter normal mode, then use `o` or `O` (standard Vim behavior).
 
 ### User Commands
 

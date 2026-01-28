@@ -19,6 +19,8 @@
 ---@diagnostic disable-next-line: missing-fields
 local M = {}
 
+local input = require("haunt.input")
+
 ---@private
 ---@type ApiModule|nil
 local api = nil
@@ -162,31 +164,30 @@ function M.handle_edit_annotation(ctx)
 	-- Close picker temporarily to show input prompt clearly
 	ctx.close_picker()
 
-	local annotation = vim.fn.input({
+	input.prompt_annotation({
 		prompt = "Annotation: ",
 		default = default_text,
+		title = default_text ~= "" and "Edit Annotation" or "New Annotation",
+		on_confirm = function(annotation)
+			-- Open the file in a buffer if not already open
+			local bufnr = vim.fn.bufnr(item.file)
+			if bufnr == -1 then
+				bufnr = vim.fn.bufadd(item.file)
+				vim.fn.bufload(bufnr)
+			end
+
+			-- Execute annotate in the buffer context
+			M.with_buffer_context(bufnr, item.line, function()
+				api_module.annotate(annotation)
+			end)
+
+			-- Reopen the picker with updated data
+			ctx.reopen_picker()
+		end,
+		on_cancel = function()
+			ctx.reopen_picker()
+		end,
 	})
-
-	-- If user cancelled (ESC) with no existing annotation, reopen picker
-	if annotation == "" and default_text == "" then
-		ctx.reopen_picker()
-		return
-	end
-
-	-- Open the file in a buffer if not already open
-	local bufnr = vim.fn.bufnr(item.file)
-	if bufnr == -1 then
-		bufnr = vim.fn.bufadd(item.file)
-		vim.fn.bufload(bufnr)
-	end
-
-	-- Execute annotate in the buffer context
-	M.with_buffer_context(bufnr, item.line, function()
-		api_module.annotate(annotation)
-	end)
-
-	-- Reopen the picker with updated data
-	ctx.reopen_picker()
 end
 
 return M
