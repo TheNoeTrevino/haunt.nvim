@@ -211,8 +211,8 @@ local function save_all_bookmarks()
 	end
 
 	local api = require("haunt.api")
-	if api.save then
-		api.save()
+	if api.save_async then
+		api.save_async()
 	end
 end
 
