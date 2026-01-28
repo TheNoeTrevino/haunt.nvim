@@ -18,6 +18,7 @@
 ---@field load fun(): boolean
 ---@field restore_buffer_bookmarks fun(bufnr: number): boolean
 ---@field save fun(): boolean
+---@field save_async fun(callback?: fun(success: boolean))
 ---@field annotate fun(text?: string): boolean
 ---@field clear fun(): boolean
 ---@field clear_all fun(): boolean
@@ -772,6 +773,26 @@ function M.save()
 	ensure_modules()
 	---@cast store -nil
 	return store.save()
+end
+
+--- Save bookmarks to persistent storage asynchronously.
+---
+--- Used for autosave scenarios where blocking I/O would cause UI lag.
+--- Does not block the main thread.
+---
+---@param callback? fun(success: boolean) Optional callback when save completes
+---
+---@usage >lua
+---   require('haunt.api').save_async(function(success)
+---     if not success then
+---       vim.notify("Failed to save bookmarks", vim.log.levels.WARN)
+---     end
+---   end)
+--- <
+function M.save_async(callback)
+	ensure_modules()
+	---@cast store -nil
+	store.save_async(callback)
 end
 
 --- Jump to the next bookmark in the current buffer.

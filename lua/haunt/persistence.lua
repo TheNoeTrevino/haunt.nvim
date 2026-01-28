@@ -24,6 +24,7 @@
 ---@field get_git_info fun(): {root: string|nil, branch: string|nil}
 ---@field get_storage_path fun(): string|nil, string|nil
 ---@field save_bookmarks fun(bookmarks: Bookmark[], filepath?: string): boolean
+---@field save_bookmarks_async fun(bookmarks: Bookmark[], filepath?: string, callback?: fun(success: boolean))
 ---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
 ---@field create_bookmark fun(file: string, line: number, note?: string): Bookmark|nil, string|nil
 ---@field is_valid_bookmark fun(bookmark: table): boolean
@@ -216,6 +217,65 @@ function M.save_bookmarks(bookmarks, filepath)
 	end
 
 	return true
+end
+
+--- Save bookmarks to JSON file asynchronously using libuv
+--- Used for autosave scenarios where blocking I/O would cause UI lag
+---@param bookmarks table Array of bookmark tables to save
+---@param filepath? string Optional custom file path (defaults to git-based path)
+---@param callback? fun(success: boolean) Optional callback called when write completes
+function M.save_bookmarks_async(bookmarks, filepath, callback)
+	if type(bookmarks) ~= "table" then
+		if callback then
+			callback(false)
+		end
+		return
+	end
+
+	local storage_path = filepath or M.get_storage_path()
+	if not storage_path then
+		if callback then
+			callback(false)
+		end
+		return
+	end
+
+	M.ensure_data_dir()
+
+	local data = {
+		version = 1,
+		bookmarks = bookmarks,
+	}
+
+	local ok, json_str = pcall(vim.json.encode, data)
+	if not ok then
+		if callback then
+			callback(false)
+		end
+		return
+	end
+
+	vim.uv.fs_open(storage_path, "w", 438, function(open_err, fd)
+		if open_err or not fd then
+			vim.schedule(function()
+				if callback then
+					callback(false)
+				end
+			end)
+			return
+		end
+
+		vim.uv.fs_write(fd, json_str, -1, function(write_err, _)
+			vim.uv.fs_close(fd, function(close_err)
+				local success = not write_err and not close_err
+				vim.schedule(function()
+					if callback then
+						callback(success)
+					end
+				end)
+			end)
+		end)
+	end)
 end
 
 --- Load bookmarks from JSON file

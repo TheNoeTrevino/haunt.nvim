@@ -4,6 +4,7 @@
 ---@field load fun(): boolean
 ---@field reload fun()
 ---@field save fun(): boolean
+---@field save_async fun(callback?: fun(success: boolean))
 ---@field get_quickfix_items fun(opts?: QuickfixOpts): QuickfixItem[]
 ---@field find_by_id fun(bookmark_id: string): Bookmark|nil, number|nil
 ---@field get_bookmark_at_line fun(filepath: string, line: number): Bookmark|nil, number|nil
@@ -312,6 +313,18 @@ function M.save()
 	---@cast persistence -nil
 	local success = persistence.save_bookmarks(bookmarks)
 	return success
+end
+
+--- Save bookmarks to persistent storage asynchronously.
+---
+--- Used for autosave scenarios where blocking I/O would cause UI lag.
+--- Does not block the main thread.
+---
+---@param callback? fun(success: boolean) Optional callback when save completes
+function M.save_async(callback)
+	ensure_persistence()
+	---@cast persistence -nil
+	persistence.save_bookmarks_async(bookmarks, nil, callback)
 end
 
 --- Add a bookmark to the store
