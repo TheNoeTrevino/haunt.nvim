@@ -8,14 +8,18 @@
 ---@alias HauntAnnotationInputProvider "auto"|"snacks"|"vim_fn"
 ---@alias HauntAnnotationInputPosition "cursor"|"top_left"|"top_right"|"bottom_left"|"bottom_right"|"center"
 
+---@class HauntAnnotationKeyConfig
+---@field key string The key to bind
+---@field mode string[] Modes in which the key is active (e.g., {"n", "i"})
+
 ---@class HauntAnnotationInputConfig
 ---@field provider? HauntAnnotationInputProvider Which input provider to use (default: "auto")
 ---@field position? HauntAnnotationInputPosition Input window position (default: "cursor")
 ---@field width? integer Fixed window width (default: 45)
 ---@field minheight? integer Minimum window height (default: 6)
 ---@field maxheight? integer Maximum window height (default: 12)
----@field save_keys? string[] Keys (normal mode) that save + exit (default: {"<CR>"})
----@field quit_keys? string[] Keys (normal mode) that quit without saving (default: {"q","<Esc>"})
+---@field save_keys? HauntAnnotationKeyConfig[] Keys that save + exit (default: {{key="<CR>", mode={"n","i"}}})
+---@field quit_keys? HauntAnnotationKeyConfig[] Keys that quit without saving (default: {{key="q", mode={"n"}}, {key="<Esc>", mode={"n"}}})
 
 ---@class HauntAnnotationInputRequest
 ---@field prompt string
@@ -152,8 +156,13 @@ function M.prompt_annotation(request)
 			local height = minheight
 			local win = build_win_config(config.position or "cursor", width, height, minheight, maxheight)
 			local title = request.title or (default_text ~= "" and "Edit Annotation" or "New Annotation")
-			local save_keys = config.save_keys or { "<CR>" }
-			local quit_keys = config.quit_keys or { "q", "<Esc>" }
+			local save_keys = config.save_keys or {
+				{ key = "<CR>", mode = { "n", "i" } },
+			}
+			local quit_keys = config.quit_keys or {
+				{ key = "q", mode = { "n" } },
+				{ key = "<Esc>", mode = { "n" } },
+			}
 			local saved = false
 			local cancelled = false
 
@@ -190,32 +199,24 @@ function M.prompt_annotation(request)
 			end
 
 			local keys = {}
-			for _, key in ipairs(save_keys) do
+			for _, key_config in ipairs(save_keys) do
+				local key = key_config.key
+				local mode = key_config.mode or { "n", "i" }
 				table.insert(keys, { key, function(self)
 					save_and_close(self)
-				end, mode = "n", desc = "save" })
+				end, mode = mode, desc = "save" })
 			end
-			for _, key in ipairs(quit_keys) do
+			for _, key_config in ipairs(quit_keys) do
+				local key = key_config.key
+				local mode = key_config.mode or { "n" }
 				table.insert(keys, { key, function(self)
 					cancel_and_close(self)
-				end, mode = "n", desc = "cancel" })
+				end, mode = mode, desc = "cancel" })
 			end
-
-			local function format_keys(keys_list)
-				local parts = {}
-				for _, key in ipairs(keys_list) do
-					parts[#parts + 1] = key
-				end
-				return table.concat(parts, "/")
-			end
-
-			local footer_text = string.format("[save %s] [cancel %s]", format_keys(save_keys), format_keys(quit_keys))
 
 			local win_opts = vim.tbl_deep_extend("force", win, {
 				title = { { " " .. title .. " ", "Title" } },
 				title_pos = "center",
-				footer = { { " " .. footer_text .. " ", "Title" } },
-				footer_pos = "center",
 				footer_keys = false,
 				enter = true,
 				keys = keys,

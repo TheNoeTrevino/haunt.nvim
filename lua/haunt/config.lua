@@ -19,14 +19,17 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---
 ---@alias HauntAnnotationInputProvider "auto"|"snacks"|"vim_fn"
 ---@alias HauntAnnotationInputPosition "cursor"|"top_left"|"top_right"|"bottom_left"|"bottom_right"|"center"
+---@class HauntAnnotationKeyConfig
+---@field key string The key to bind
+---@field mode string[] Modes in which the key is active (e.g., {"n", "i"})
 ---@class HauntAnnotationInputConfig
 ---@field provider? HauntAnnotationInputProvider Which input provider to use (default: "auto")
 ---@field position? HauntAnnotationInputPosition Input window position (default: "cursor")
 ---@field width? integer Fixed window width (default: 45)
 ---@field minheight? integer Minimum window height (default: 6)
 ---@field maxheight? integer Maximum window height (default: 12)
----@field save_keys? string[] Keys (normal mode) that save + exit (default: {"<CR>"})
----@field quit_keys? string[] Keys (normal mode) that quit without saving (default: {"q","<Esc>"})
+---@field save_keys? HauntAnnotationKeyConfig[] Keys that save + exit (default: {{key="<CR>", mode={"n","i"}}})
+---@field quit_keys? HauntAnnotationKeyConfig[] Keys that quit without saving (default: {{key="q", mode={"n"}}, {key="<Esc>", mode={"n"}}})
 ---
 ---@class HauntConfig
 ---
@@ -43,8 +46,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field data_dir? string|nil Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
 ---@field picker? "snacks"|"telescope"|"fzf"|"auto" Which picker to use: "snacks", "telescope", "fzf", or "auto" (default: "auto"). "auto" tries Snacks first, then Telescope, then fzf-lua, then vim.ui.select
 ---@field picker_keys table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
----@field annotation_input? HauntAnnotationInputConfig Input prompt configuration (default: {provider="auto", position="cursor", width=45, minheight=6, maxheight=12, save_keys={"<CR>"}, quit_keys={"q","<Esc>"}})
----@field per_branch_bookmarks? boolean Whether bookmarks are scoped per git branch (default: true). When false, bookmarks persist across all branches in the same repository.
+---@field annotation_input? HauntAnnotationInputConfig Input prompt configuration (default: {provider="auto", position="cursor", width=45, minheight=6, maxheight=12, save_keys={{key="<CR>", mode={"n","i"}}}, quit_keys={{key="q", mode={"n"}}, {key="<Esc>", mode={"n"}}}})---@field per_branch_bookmarks? boolean Whether bookmarks are scoped per git branch (default: true). When false, bookmarks persist across all branches in the same repository.
 --minidoc_replace_start M.DEFAULT = {
 M.DEFAULT = {
 	--minidoc_replace_end
@@ -67,8 +69,13 @@ M.DEFAULT = {
 		width = 45,
 		minheight = 6,
 		maxheight = 12,
-		save_keys = { "<CR>" },
-		quit_keys = { "q", "<Esc>" },
+		save_keys = {
+			{ key = "<CR>", mode = { "n", "i" } },
+		},
+		quit_keys = {
+			{ key = "q", mode = { "n" } },
+			{ key = "<Esc>", mode = { "n" } },
+		},
 	},
 }
 --minidoc_afterlines_end
