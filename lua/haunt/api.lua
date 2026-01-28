@@ -64,6 +64,12 @@ local restoration = nil
 ---@private
 ---@type SidekickModule|nil
 local sidekick = nil
+---@private
+---@type HooksModule|nil
+local hooks = nil
+---@private
+---@type HauntEvents|nil
+local events = nil
 
 ---@private
 local function ensure_modules()
@@ -84,6 +90,12 @@ local function ensure_modules()
 	end
 	if not sidekick then
 		sidekick = require("haunt.sidekick")
+	end
+	if not hooks then
+		hooks = require("haunt.hooks")
+	end
+	if not events then
+		events = require("haunt.hook_events")
 	end
 end
 
@@ -121,6 +133,8 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 	---@cast store -nil
 	---@cast display -nil
 	---@cast persistence -nil
+	---@cast hooks -nil
+	---@cast events -nil
 
 	-- Create bookmark with unique ID
 	local new_bookmark, err = persistence.create_bookmark(filepath, line, note)
@@ -166,6 +180,13 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 		return false
 	end
 
+	hooks.emit(events.onCreate, {
+		bookmark = new_bookmark,
+		bufnr = bufnr,
+		file = filepath,
+		line = line,
+	})
+
 	return true
 end
 
@@ -179,6 +200,8 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
+	---@cast hooks -nil
+	---@cast events -nil
 
 	local old_note = bookmark.note
 	local old_annotation_extmark_id = bookmark.annotation_extmark_id
@@ -210,6 +233,13 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 		vim.notify("haunt.nvim: Failed to save bookmarks after annotation update", vim.log.levels.ERROR)
 		return false
 	end
+
+	hooks.emit(events.onUpdate, {
+		bookmark = bookmark,
+		bufnr = bufnr,
+		old_note = old_note,
+		new_note = new_note,
+	})
 
 	return true
 end
@@ -372,6 +402,8 @@ end
 function M.delete()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
+	---@cast events -nil
 
 	require("haunt")._ensure_initialized()
 
@@ -403,6 +435,13 @@ function M.delete()
 		vim.notify("haunt.nvim: Failed to save bookmarks after removal", vim.log.levels.ERROR)
 		return false
 	end
+
+	hooks.emit(events.onDelete, {
+		bookmark = existing_bookmark,
+		bufnr = bufnr,
+		file = filepath,
+		line = line,
+	})
 
 	vim.notify("haunt.nvim: Bookmark deleted", vim.log.levels.INFO)
 	return true
@@ -494,6 +533,7 @@ end
 function M.clear()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	local current_file = utils.normalize_filepath(vim.fn.expand("%"))
 
@@ -529,6 +569,14 @@ function M.clear()
 	local save_ok = store.save()
 
 	if save_ok then
+		for _, bookmark in ipairs(file_bookmarks) do
+			hooks.emit(events.onDelete, {
+				bookmark = bookmark,
+				bufnr = bufnr,
+				file = bookmark.file,
+				line = bookmark.line,
+			})
+		end
 		local count = #file_bookmarks
 		vim.notify(string.format("haunt.nvim: Cleared %d bookmark(s) from current file", count), vim.log.levels.INFO)
 		return true
@@ -550,6 +598,7 @@ end
 function M.clear_all()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	if not store.has_bookmarks() then
 		vim.notify("haunt.nvim: No bookmarks to clear", vim.log.levels.INFO)
@@ -599,6 +648,17 @@ function M.clear_all()
 	local save_ok = store.save()
 
 	if save_ok then
+		for file_path, file_bookmarks in pairs(grouped_bookmarks) do
+			local bufnr = vim.fn.bufnr(file_path)
+			for _, bookmark in ipairs(file_bookmarks) do
+				hooks.emit(events.onDelete, {
+					bookmark = bookmark,
+					bufnr = bufnr ~= -1 and bufnr or nil,
+					file = bookmark.file,
+					line = bookmark.line,
+				})
+			end
+		end
 		vim.notify(string.format("haunt.nvim: Cleared all %d bookmark(s)", count), vim.log.levels.INFO)
 		return true
 	else
@@ -624,6 +684,7 @@ end
 function M.delete_by_id(bookmark_id)
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	local bookmark, _ = store.find_by_id(bookmark_id)
 	if not bookmark then
@@ -645,6 +706,13 @@ function M.delete_by_id(bookmark_id)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false
 	end
+
+	hooks.emit(events.onDelete, {
+		bookmark = bookmark,
+		bufnr = bufnr,
+		file = bookmark.file,
+		line = bookmark.line,
+	})
 
 	return true
 end
@@ -691,9 +759,9 @@ end
 --- <
 function M.yank_locations(opts)
 	ensure_modules()
+	---@cast sidekick -nil
 	opts = opts or {}
 
-	---@cast sidekick -nil
 	local locations = sidekick.get_locations(opts)
 
 	if locations == "" then
