@@ -761,8 +761,8 @@ end
 
 --- Save bookmarks to persistent storage.
 ---
---- Bookmarks are auto-saved on buffer hide and Neovim exit, but you can
---- call this manually to force a save.
+--- Bookmarks are auto-saved on text changes (debounced) and Neovim exit,
+--- but you can call this manually to force a save.
 ---
 ---@return boolean success True if save succeeded
 ---
