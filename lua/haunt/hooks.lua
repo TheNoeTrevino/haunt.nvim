@@ -95,7 +95,6 @@
 ---@class PreSaveContext
 ---@field bookmarks Bookmark[] The full bookmarks array about to be saved (direct reference, do not mutate)
 ---@field count number Total number of bookmarks being saved
----@field async boolean True if this is an asynchronous save (autosave), false for synchronous saves
 
 --- Context passed to `on_post_save` callbacks.
 --- Fired after bookmarks are written to disk (or the write attempt completes).
@@ -103,7 +102,6 @@
 ---@field bookmarks Bookmark[] The bookmarks that were just saved (direct reference, do not mutate)
 ---@field count number Total number of bookmarks that were saved
 ---@field success boolean Whether the save operation succeeded
----@field async boolean True if this was an asynchronous save (autosave), false for synchronous saves
 
 --- Context passed to `on_load` callbacks.
 --- Fired after bookmarks are loaded from disk into memory.

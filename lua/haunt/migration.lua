@@ -170,7 +170,7 @@ local function do_migrate(info, old_path, new_path, data)
 		vim.log.levels.INFO
 	)
 
-	require("haunt.api").reload()
+	require("haunt.api").reload("migration")
 end
 
 --- Migrate the current project's v1 bookmark file to v2.

@@ -71,9 +71,20 @@ local _loaded_storage_path = nil
 local persistence = nil
 
 ---@private
+---@type HooksModule|nil
+local hooks = nil
+
+---@private
 local function ensure_persistence()
 	if not persistence then
 		persistence = require("haunt.persistence")
+	end
+end
+
+---@private
+local function ensure_hooks()
+	if not hooks then
+		hooks = require("haunt.hooks")
 	end
 end
 
@@ -301,7 +312,10 @@ function M.load()
 	end
 
 	ensure_persistence()
+	ensure_hooks()
 	---@cast persistence -nil
+	---@cast hooks -nil
+
 	local loaded_bookmarks = persistence.load_bookmarks()
 	if loaded_bookmarks then
 		bookmarks = loaded_bookmarks
@@ -313,6 +327,11 @@ function M.load()
 	_loaded_project_id = info.project_id
 	_loaded_project_root = info.root
 	_loaded_storage_path = persistence.get_storage_path()
+
+	hooks.emit_load({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+	})
 
 	return true
 end
@@ -366,9 +385,26 @@ end
 ---@return boolean success True if save succeeded
 function M.save()
 	ensure_persistence()
+	ensure_hooks()
 	---@cast persistence -nil
+	---@cast hooks -nil
+
 	sync_lines_from_extmarks()
-	return persistence.save_bookmarks(bookmarks, _loaded_storage_path, _loaded_project_root)
+
+	hooks.emit_pre_save({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+	})
+
+	local success = persistence.save_bookmarks(bookmarks, _loaded_storage_path, _loaded_project_root)
+
+	hooks.emit_post_save({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+		success = success,
+	})
+
+	return success
 end
 
 --- The project_id stamped onto the in-memory store. Used by the dir-change

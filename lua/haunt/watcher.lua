@@ -104,13 +104,17 @@ end
 --- since HEAD bounces through detached states transiently.
 ---@private
 function M._check_and_reload()
-	if _watched_gitdir and is_rebase_in_progress(_watched_gitdir) then
+	if _watched_gitdir == nil then
+		return
+	end
+	if is_rebase_in_progress(_watched_gitdir) then
 		return
 	end
 
 	local store = require("haunt.store")
 	local persistence = require("haunt.persistence")
 	local project = require("haunt.project")
+	local hooks = require("haunt.hooks")
 
 	local stamped_path = store.get_loaded_storage_path()
 	if stamped_path == nil then
@@ -128,9 +132,15 @@ function M._check_and_reload()
 		store.save()
 	end
 
+	hooks.emit_branch_change({
+		gitdir = _watched_gitdir,
+		old_storage_path = stamped_path,
+		new_storage_path = current_path,
+	})
+
 	-- api.reload() restarts this watcher itself, so the gitdir/HEAD target
 	-- gets re-resolved if a worktree switch happened to land here too.
-	require("haunt.api").reload()
+	require("haunt.api").reload("branch_change")
 end
 
 --- fs_event delivers a filename for each change in the watched directory.
