@@ -35,19 +35,26 @@ end
 --- Define custom highlight groups for haunt
 --- Creates HauntAnnotation highlight group with sensible defaults
 --- Users can override this by defining the highlight group themselves
+local function define_highlights()
+	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
+	if vim.tbl_isempty(existing) then
+		vim.api.nvim_set_hl(0, "HauntAnnotation", { link = "DiagnosticVirtualTextHint" })
+	end
+end
+
 local function ensure_highlights_defined()
 	if _highlights_defined then
 		return
 	end
 	_highlights_defined = true
 
-	-- Only set if not already defined by user
-	-- Link to DiagnosticVirtualTextHint which typically has a subtle background
-	-- and is semantically appropriate for hint/annotation text
-	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
-	if vim.tbl_isempty(existing) then
-		vim.api.nvim_set_hl(0, "HauntAnnotation", { link = "DiagnosticVirtualTextHint" })
-	end
+	define_highlights()
+
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		group = vim.api.nvim_create_augroup("haunt_highlights", { clear = true }),
+		callback = define_highlights,
+		desc = "Re-apply HauntAnnotation highlight after colorscheme change",
+	})
 end
 
 --- Get or create the namespace for haunt extmarks
