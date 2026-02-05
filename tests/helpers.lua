@@ -48,6 +48,8 @@ function M.reset_modules()
 	package.loaded["haunt.picker.fzf"] = nil
 	package.loaded["haunt.picker.fallback"] = nil
 	package.loaded["haunt.sidekick"] = nil
+	package.loaded["haunt.hooks"] = nil
+	package.loaded["haunt.hook_events"] = nil
 end
 
 --- Setup haunt for testing with default config

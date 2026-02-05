@@ -19,7 +19,9 @@ local store = nil
 ---@private
 ---@type DisplayModule|nil
 local display = nil
-
+---@private
+---@type HooksModule|nil
+local hooks = nil
 ---@private
 local function ensure_modules()
 	if not store then
@@ -27,6 +29,9 @@ local function ensure_modules()
 	end
 	if not display then
 		display = require("haunt.display")
+	end
+	if not hooks then
+		hooks = require("haunt.hooks")
 	end
 end
 
@@ -145,6 +150,14 @@ function M.restore_buffer_bookmarks(bufnr, annotations_visible)
 
 		::continue::
 	end
+
+	---@cast hooks -nil
+	hooks.emit_restore({
+		bufnr = bufnr,
+		file = filepath,
+		bookmarks = buffer_bookmarks,
+		count = #buffer_bookmarks,
+	})
 
 	return success
 end

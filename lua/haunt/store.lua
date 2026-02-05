@@ -50,9 +50,20 @@ local _loaded = false
 local persistence = nil
 
 ---@private
+---@type HooksModule|nil
+local hooks = nil
+
+---@private
 local function ensure_persistence()
 	if not persistence then
 		persistence = require("haunt.persistence")
+	end
+end
+
+---@private
+local function ensure_hooks()
+	if not hooks then
+		hooks = require("haunt.hooks")
 	end
 end
 
@@ -280,13 +291,21 @@ function M.load()
 	end
 
 	ensure_persistence()
+	ensure_hooks()
 	---@cast persistence -nil
+	---@cast hooks -nil
+
 	local loaded_bookmarks = persistence.load_bookmarks()
 	if loaded_bookmarks then
 		bookmarks = loaded_bookmarks
 		rebuild_file_index()
 	end
 	_loaded = true
+
+	hooks.emit_load({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+	})
 
 	return true
 end
@@ -310,8 +329,25 @@ end
 ---@return boolean success True if save succeeded
 function M.save()
 	ensure_persistence()
+	ensure_hooks()
 	---@cast persistence -nil
+	---@cast hooks -nil
+
+	hooks.emit_pre_save({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+		async = false,
+	})
+
 	local success = persistence.save_bookmarks(bookmarks)
+
+	hooks.emit_post_save({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+		success = success,
+		async = false,
+	})
+
 	return success
 end
 
@@ -323,8 +359,30 @@ end
 ---@param callback? fun(success: boolean) Optional callback when save completes
 function M.save_async(callback)
 	ensure_persistence()
+	ensure_hooks()
 	---@cast persistence -nil
-	persistence.save_bookmarks_async(bookmarks, nil, callback)
+	---@cast hooks -nil
+
+	hooks.emit_pre_save({
+		bookmarks = bookmarks,
+		count = #bookmarks,
+		async = true,
+	})
+
+	local saved_bookmarks = bookmarks
+	local saved_count = #bookmarks
+
+	persistence.save_bookmarks_async(bookmarks, nil, function(success)
+		hooks.emit_post_save({
+			bookmarks = saved_bookmarks,
+			count = saved_count,
+			success = success,
+			async = true,
+		})
+		if callback then
+			callback(success)
+		end
+	end)
 end
 
 --- Add a bookmark to the store
