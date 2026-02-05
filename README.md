@@ -63,6 +63,7 @@ return {
     sign_hl = "DiagnosticInfo",
     virt_text_hl = "HauntAnnotation", -- links to DiagnosticVirtualTextHint
     annotation_prefix = " 󰆉 ",
+    annotation_suffix = "",
     line_hl = nil,
     virt_text_pos = "eol",
     data_dir = nil,

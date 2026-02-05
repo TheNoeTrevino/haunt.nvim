@@ -27,6 +27,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field sign_hl? string The highlight group for the sign text (default: 'DiagnosticInfo')
 ---@field virt_text_hl? string The highlight group for virtual text annotations (default: 'HauntAnnotation')
 ---@field annotation_prefix? string Text to display before the annotation (default: '  ')
+---@field annotation_suffix? string Text to display after the annotation (default: '')
 ---@field line_hl? string|nil The highlight group for the entire line (default: nil)
 ---@field virt_text_pos? string Position of virtual text: "eol" (default), "eol_right_align", "overlay", "right_align", "inline"
 ---@field data_dir? string|nil Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
@@ -40,6 +41,7 @@ M.DEFAULT = {
 	sign_hl = "DiagnosticInfo",
 	virt_text_hl = "HauntAnnotation",
 	annotation_prefix = " 󰆉 ",
+	annotation_suffix = "",
 	line_hl = nil,
 	virt_text_pos = "eol",
 	data_dir = nil,

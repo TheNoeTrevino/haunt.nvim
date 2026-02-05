@@ -140,11 +140,12 @@ function M.show_annotation(bufnr, line, note)
 	-- some guards
 	local hl_group = cfg.virt_text_hl or "HauntAnnotation"
 	local prefix = cfg.annotation_prefix or "  "
+	local suffix = cfg.annotation_suffix or ""
 	local virt_text_pos = cfg.virt_text_pos or "eol"
 
 	-- nvim_buf_set_extmark uses 0-based line numbers
 	local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, M.get_namespace(), line - 1, 0, {
-		virt_text = { { prefix .. note, hl_group } },
+		virt_text = { { prefix .. note .. suffix, hl_group } },
 		virt_text_pos = virt_text_pos,
 	})
 
