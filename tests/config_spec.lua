@@ -32,6 +32,37 @@ describe("haunt.config", function()
 		end)
 	end)
 
+	describe("annotation_suffix configuration", function()
+		it("has empty string as default", function()
+			local cfg = config.get()
+			assert.are.equal("", cfg.annotation_suffix)
+		end)
+
+		it("accepts custom annotation_suffix", function()
+			config.setup({ annotation_suffix = " >>>" })
+			local cfg = config.get()
+			assert.are.equal(" >>>", cfg.annotation_suffix)
+		end)
+
+		it("preserves annotation_suffix across setup calls", function()
+			config.setup({ annotation_suffix = " <<<" })
+			config.setup({ sign = "🔖" })
+
+			local cfg = config.get()
+			assert.are.equal(" <<<", cfg.annotation_suffix)
+		end)
+
+		it("allows both prefix and suffix", function()
+			config.setup({
+				annotation_prefix = "[ ",
+				annotation_suffix = " ]",
+			})
+			local cfg = config.get()
+			assert.are.equal("[ ", cfg.annotation_prefix)
+			assert.are.equal(" ]", cfg.annotation_suffix)
+		end)
+	end)
+
 	describe("setup()", function()
 		it("merges single option with defaults", function()
 			config.setup({ sign = "🔖" })

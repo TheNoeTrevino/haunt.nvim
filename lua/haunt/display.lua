@@ -35,19 +35,26 @@ end
 --- Define custom highlight groups for haunt
 --- Creates HauntAnnotation highlight group with sensible defaults
 --- Users can override this by defining the highlight group themselves
+local function define_highlights()
+	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
+	if vim.tbl_isempty(existing) then
+		vim.api.nvim_set_hl(0, "HauntAnnotation", { link = "DiagnosticVirtualTextHint" })
+	end
+end
+
 local function ensure_highlights_defined()
 	if _highlights_defined then
 		return
 	end
 	_highlights_defined = true
 
-	-- Only set if not already defined by user
-	-- Link to DiagnosticVirtualTextHint which typically has a subtle background
-	-- and is semantically appropriate for hint/annotation text
-	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
-	if vim.tbl_isempty(existing) then
-		vim.api.nvim_set_hl(0, "HauntAnnotation", { link = "DiagnosticVirtualTextHint" })
-	end
+	define_highlights()
+
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		group = vim.api.nvim_create_augroup("haunt_highlights", { clear = true }),
+		callback = define_highlights,
+		desc = "Re-apply HauntAnnotation highlight after colorscheme change",
+	})
 end
 
 --- Get or create the namespace for haunt extmarks
@@ -133,11 +140,12 @@ function M.show_annotation(bufnr, line, note)
 	-- some guards
 	local hl_group = cfg.virt_text_hl or "HauntAnnotation"
 	local prefix = cfg.annotation_prefix or "  "
+	local suffix = cfg.annotation_suffix or ""
 	local virt_text_pos = cfg.virt_text_pos or "eol"
 
 	-- nvim_buf_set_extmark uses 0-based line numbers
 	local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, M.get_namespace(), line - 1, 0, {
-		virt_text = { { prefix .. note, hl_group } },
+		virt_text = { { prefix .. note .. suffix, hl_group } },
 		virt_text_pos = virt_text_pos,
 	})
 

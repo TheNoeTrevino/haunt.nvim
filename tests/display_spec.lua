@@ -93,6 +93,63 @@ describe("haunt.display", function()
 		end)
 	end)
 
+	describe("annotation with suffix", function()
+		local bufnr
+
+		before_each(function()
+			bufnr = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Line 1", "Line 2" })
+		end)
+
+		after_each(function()
+			if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+				vim.api.nvim_buf_delete(bufnr, { force = true })
+			end
+		end)
+
+		it("includes suffix in virtual text", function()
+			config.setup({
+				annotation_prefix = "[ ",
+				annotation_suffix = " ]",
+			})
+
+			local extmark_id = display.show_annotation(bufnr, 1, "TODO")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+
+			assert.are.equal("[ TODO ]", details[3].virt_text[1][1])
+		end)
+
+		it("works with only suffix (no prefix)", function()
+			config.setup({
+				annotation_prefix = "",
+				annotation_suffix = " 🔖",
+			})
+
+			local extmark_id = display.show_annotation(bufnr, 1, "Important")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+
+			assert.are.equal("Important 🔖", details[3].virt_text[1][1])
+		end)
+
+		it("works with empty suffix (backward compatibility)", function()
+			config.setup({
+				annotation_prefix = ">>> ",
+				annotation_suffix = "",
+			})
+
+			local extmark_id = display.show_annotation(bufnr, 1, "Note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+
+			assert.are.equal(">>> Note", details[3].virt_text[1][1])
+		end)
+	end)
+
 	describe("set_bookmark_mark / get_extmark_line / delete_bookmark_mark", function()
 		local bufnr
 

@@ -101,7 +101,7 @@
 --- Bookmarks are automatically saved and loaded:
 ---   - Location: `~/.local/share/nvim/haunt/` (or custom data_dir)
 ---   - Format: JSON files named by git repo + branch hash
----   - Auto-save: On buffer hide and Neovim exit
+---   - Auto-save: On text changes (debounced) and Neovim exit
 ---   - Per-branch: Each git branch has its own bookmark set
 ---
 --- This means you can:
@@ -239,25 +239,19 @@ end
 function M.setup_autocmds()
 	local augroup = vim.api.nvim_create_augroup("haunt_autosave", { clear = true })
 
-	-- Save bookmarks when buffer is hidden
-	vim.api.nvim_create_autocmd("BufHidden", {
-		group = augroup,
-		pattern = "*",
-		callback = function()
-			save_all_bookmarks()
-		end,
-		desc = "Auto-save bookmarks when buffer is hidden",
-	})
-
-	-- Save all bookmarks before Vim exits
+	-- Save all bookmarks before Vim exits (synchronous to ensure completion)
 	vim.api.nvim_create_autocmd("VimLeavePre", {
 		group = augroup,
 		pattern = "*",
 		callback = function()
-			-- Stop any pending debounce timer
 			save_timer:stop()
 
-			save_all_bookmarks()
+			if not has_bookmarks() then
+				return
+			end
+
+			local store = require("haunt.store")
+			store.save()
 		end,
 		desc = "Auto-save all bookmarks before Vim exits",
 	})
