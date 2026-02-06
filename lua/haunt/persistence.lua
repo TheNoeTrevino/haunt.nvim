@@ -1,22 +1,5 @@
----@toc_entry Bookmark Structure
----@tag haunt-bookmark
----@tag Bookmark
----@text
---- # Bookmark Structure ~
----
---- Bookmarks are stored as tables with the following fields:
-
---- Bookmark data structure.
----
---- Represents a single bookmark in haunt.nvim.
----
----@class Bookmark
----@field file string Absolute path to the bookmarked file
----@field line number 1-based line number of the bookmark
----@field note string|nil Optional annotation text displayed as virtual text
----@field id string Unique bookmark identifier (auto-generated)
----@field extmark_id number|nil Extmark ID for line tracking (internal)
----@field annotation_extmark_id number|nil Extmark ID for annotation display (internal)
+-- lua/haunt/persistence.lua
+-- Updated to support project-relative paths for cross-machine syncing
 
 ---@class PersistenceModule
 ---@field set_data_dir fun(dir: string|nil)
@@ -50,6 +33,9 @@ local CACHE_TTL = 5000 -- 5 seconds in milliseconds
 ---@type boolean
 local _git_warning_shown = false
 
+-- Format version for storage
+local CURRENT_FORMAT_VERSION = 2
+
 --- Gets the git root directory for the current working directory
 ---@return string|nil git_root The git repository root path, or nil if not in a git repo
 local function get_git_root()
@@ -60,8 +46,6 @@ local function get_git_root()
 		return result[1]
 	end
 
-	-- Exit code 128 typically means "not a git repository" - this is expected
-	-- Exit code 127 means "command not found" - git is not installed
 	if exit_code == 127 and not _git_warning_shown then
 		_git_warning_shown = true
 		vim.notify(
@@ -98,7 +82,6 @@ local function get_git_branch()
 end
 
 --- Set custom data directory
---- Expands ~ to home directory and ensures trailing slash
 ---@param dir string|nil Custom data directory path, or nil to reset to default
 function M.set_data_dir(dir)
 	if dir == nil then
@@ -125,54 +108,230 @@ function M.ensure_data_dir()
 end
 
 --- Get git repository information for the current working directory
---- Uses caching with 5-second TTL to avoid repeated system calls
---- @return { root: string|nil, branch: string|nil }
---- Returns a table with:
----   - root: absolute path to git repository root, or nil if not in a git repo
----   - branch: name of current branch, or nil if not in a git repo, detached HEAD, or no commits
+---@return { root: string|nil, branch: string|nil }
 function M.get_git_info()
-	local now = vim.uv.hrtime() / 1e6 -- Convert to milliseconds
+	local now = vim.uv.hrtime() / 1e6
 
-	-- Check if cache is valid
 	if _git_info_cache and (now - _cache_time) < CACHE_TTL then
 		return _git_info_cache
 	end
 
-	-- Cache miss or expired - fetch fresh data
 	local result = {
 		root = get_git_root(),
 		branch = get_git_branch(),
 	}
 
-	-- Update cache
 	_git_info_cache = result
 	_cache_time = now
 
 	return result
 end
 
---- Generates a storage path for the current git repository and branch
---- Uses a 12-character SHA256 hash of "repo_root|branch" for the filename
+--- Generates a storage path that's stable across project moves
+--- Uses git remote URL for git repos (stable across moves), normalized path with ~ for non-git
 --- For detached HEAD states (e.g., tag checkouts), uses the short commit hash as identifier
---- Falls back to CWD and "__default__" branch when not in a git repository
 --- When per_branch_bookmarks is false, only uses repo_root for the hash (bookmarks shared across branches)
 ---@return string path The full path to the storage file
 function M.get_storage_path()
 	local config = require("haunt.config").get()
 	local data_dir = M.ensure_data_dir()
-	local repo_root = get_git_root() or vim.fn.getcwd()
 
-	-- Skip branch scoping if per_branch_bookmarks is disabled
-	if not config.per_branch_bookmarks then
-		local hash = vim.fn.sha256(repo_root):sub(1, 12)
-		return data_dir .. hash .. ".json"
+	-- Determine the key for hashing
+	local key
+	local git_root = get_git_root()
+
+	if git_root then
+		-- Try to use git remote URL (stable across moves)
+		local remote =
+			vim.fn.systemlist("git -C " .. vim.fn.shellescape(git_root) .. " remote get-url origin 2>/dev/null")[1]
+		if vim.v.shell_error == 0 and remote and remote ~= "" then
+			-- Normalize remote URL (remove .git, https://, git@, etc.)
+			remote = remote:gsub("%.git$", "")
+			remote = remote:gsub("^https://", "")
+			remote = remote:gsub("^git@", "")
+			remote = remote:gsub(":", "/")
+			key = remote
+		else
+			-- Git repo but no remote - use directory name
+			local dir_name = vim.fn.fnamemodify(git_root, ":t")
+			key = "local_git_" .. dir_name
+		end
+	else
+		-- Not a git repo - use normalized path with ~
+		local paths = require("haunt.paths")
+		key = paths.normalize_home(vim.fn.getcwd())
 	end
 
-	local branch = get_git_branch() or "__default__"
-	local key = repo_root .. "|" .. branch
-	local hash = vim.fn.sha256(key):sub(1, 12)
+	-- Add branch to key if per_branch_bookmarks is enabled
+	if config.per_branch_bookmarks then
+		local branch = get_git_branch() or "__default__"
+		key = key .. "|" .. branch
+	end
 
+	local hash = vim.fn.sha256(key):sub(1, 12)
 	return data_dir .. hash .. ".json"
+end
+
+--- Detect project root for current context
+---@return string|nil root_dir
+---@return string method
+local function detect_project_root()
+	local root_module = require("haunt.root")
+	local bufnr = vim.api.nvim_get_current_buf()
+	return root_module.detect(bufnr)
+end
+
+--- Convert bookmarks to storage format (v2)
+---@param bookmarks Bookmark[]
+---@param project_root string|nil
+---@return table storage_data
+local function bookmarks_to_storage_v2(bookmarks, project_root)
+	local paths = require("haunt.paths")
+	local config = require("haunt.config").get()
+
+	local stored_bookmarks = {}
+
+	for _, bookmark in ipairs(bookmarks) do
+		local stored = {
+			line = bookmark.line,
+			note = bookmark.note,
+			id = bookmark.id,
+		}
+
+		-- Store relative path if possible
+		if config.storage.use_relative_paths and project_root then
+			stored.file = paths.to_relative(bookmark.file, project_root)
+		else
+			stored.file = bookmark.file
+		end
+
+		-- Store backup absolute path (normalized with ~)
+		if config.storage.store_backup_paths then
+			stored.file_absolute = paths.normalize_home(bookmark.file)
+		end
+
+		table.insert(stored_bookmarks, stored)
+	end
+
+	return {
+		format_version = CURRENT_FORMAT_VERSION,
+		project = project_root and {
+			root = paths.normalize_home(project_root),
+			root_absolute = project_root,
+		} or vim.NIL,
+		bookmarks = stored_bookmarks,
+		metadata = {
+			created_at = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+			last_modified = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+			haunt_version = "0.5.0", -- TODO: Get from plugin version
+		},
+	}
+end
+
+--- Migrate v1 format to v2
+---@param v1_data table
+---@return table v2_data
+local function migrate_v1_to_v2(v1_data)
+	local project_root, detection_method = detect_project_root()
+	local paths = require("haunt.paths")
+
+	local bookmarks = v1_data.bookmarks or {}
+	local migrated_bookmarks = {}
+
+	for _, bookmark in ipairs(bookmarks) do
+		local migrated = {
+			line = bookmark.line,
+			note = bookmark.note,
+			id = bookmark.id,
+		}
+
+		-- Convert to relative path if in project
+		if project_root then
+			migrated.file = paths.to_relative(bookmark.file, project_root)
+		else
+			migrated.file = bookmark.file
+		end
+
+		-- Store backup
+		migrated.file_absolute = paths.normalize_home(bookmark.file)
+
+		table.insert(migrated_bookmarks, migrated)
+	end
+
+	return {
+		format_version = CURRENT_FORMAT_VERSION,
+		project = project_root and {
+			root = paths.normalize_home(project_root),
+			root_absolute = project_root,
+			detection_method = detection_method,
+		} or vim.NIL,
+		bookmarks = migrated_bookmarks,
+		metadata = {
+			created_at = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+			last_modified = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+			haunt_version = "0.5.0",
+			migrated_from = "v1",
+		},
+	}
+end
+
+--- Convert storage format back to bookmarks
+---@param storage_data table
+---@param project_root string|nil
+---@return Bookmark[]
+local function storage_to_bookmarks(storage_data, project_root)
+	local paths = require("haunt.paths")
+	local bookmarks = {}
+
+	for _, stored in ipairs(storage_data.bookmarks or {}) do
+		local file_path = nil
+
+		-- Try relative path first (if we have a project root)
+		if stored.file and project_root then
+			file_path = paths.to_absolute(stored.file, project_root)
+
+			-- Check if file exists
+			if not paths.file_exists(file_path) then
+				file_path = nil
+			end
+		end
+
+		-- Fall back to absolute path
+		if not file_path and stored.file_absolute then
+			file_path = paths.expand_home(stored.file_absolute)
+
+			if not paths.file_exists(file_path) then
+				-- File doesn't exist - skip with warning
+				vim.notify(
+					string.format("haunt.nvim: File not found, skipping bookmark: %s", stored.file_absolute or stored.file),
+					vim.log.levels.WARN
+				)
+				goto continue
+			end
+		end
+
+		-- If we still don't have a valid path, try the stored file as-is
+		if not file_path and stored.file then
+			file_path = paths.expand_home(stored.file)
+			if not paths.file_exists(file_path) then
+				goto continue
+			end
+		end
+
+		if file_path then
+			table.insert(bookmarks, {
+				file = file_path,
+				line = stored.line,
+				note = stored.note,
+				id = stored.id,
+				extmark_id = nil,
+			})
+		end
+
+		::continue::
+	end
+
+	return bookmarks
 end
 
 --- Save bookmarks to JSON file
@@ -180,27 +339,24 @@ end
 ---@param filepath? string Optional custom file path (defaults to git-based path)
 ---@return boolean success True if save was successful, false otherwise
 function M.save_bookmarks(bookmarks, filepath)
-	-- Validate input
 	if type(bookmarks) ~= "table" then
 		vim.notify("haunt.nvim: save_bookmarks: bookmarks must be a table", vim.log.levels.ERROR)
 		return false
 	end
 
-	-- Get storage path
 	local storage_path = filepath or M.get_storage_path()
 	if not storage_path then
 		vim.notify("haunt.nvim: save_bookmarks: could not determine storage path", vim.log.levels.ERROR)
 		return false
 	end
 
-	-- Ensure storage directory exists
 	M.ensure_data_dir()
 
-	-- Create data structure with version
-	local data = {
-		version = 1,
-		bookmarks = bookmarks,
-	}
+	-- Detect project root
+	local project_root, _ = detect_project_root()
+
+	-- Convert to storage format
+	local data = bookmarks_to_storage_v2(bookmarks, project_root)
 
 	-- Encode to JSON
 	local ok, json_str = pcall(vim.json.encode, data)
@@ -282,67 +438,68 @@ end
 ---@param filepath? string Optional custom file path (defaults to git-based path)
 ---@return table bookmarks Array of bookmarks, or empty table if file doesn't exist or on error
 function M.load_bookmarks(filepath)
-	-- Get storage path
 	local storage_path = filepath or M.get_storage_path()
 	if not storage_path then
 		vim.notify("haunt.nvim: load_bookmarks: could not determine storage path", vim.log.levels.WARN)
 		return {}
 	end
 
-	-- Check if file exists
 	if vim.fn.filereadable(storage_path) == 0 then
-		-- File doesn't exist, return empty table (not an error)
 		return {}
 	end
 
-	-- Read file
 	local ok, lines = pcall(vim.fn.readfile, storage_path)
 	if not ok then
 		vim.notify("haunt.nvim: load_bookmarks: failed to read file: " .. storage_path, vim.log.levels.ERROR)
 		return {}
 	end
 
-	-- Join lines into single string
 	local json_str = table.concat(lines, "\n")
 
-	-- Decode JSON
 	local decode_ok, data = pcall(vim.json.decode, json_str)
 	if not decode_ok then
 		vim.notify("haunt.nvim: load_bookmarks: JSON decoding failed: " .. tostring(data), vim.log.levels.ERROR)
 		return {}
 	end
 
-	-- Validate structure
 	if type(data) ~= "table" then
 		vim.notify("haunt.nvim: load_bookmarks: invalid data structure (not a table)", vim.log.levels.ERROR)
 		return {}
 	end
 
-	-- Validate version field
-	if not data.version then
-		vim.notify("haunt.nvim: load_bookmarks: missing version field", vim.log.levels.WARN)
+	-- Handle version migration
+	local version = data.format_version or data.version or 1
+
+	if version == 1 then
+		-- Migrate v1 to v2
+		vim.notify("haunt.nvim: Migrating bookmarks from v1 to v2 format...", vim.log.levels.INFO)
+		data = migrate_v1_to_v2(data)
+
+		-- Save migrated data
+		local backup_path = storage_path .. ".v1.backup"
+		vim.fn.writefile({ json_str }, backup_path)
+		vim.notify("haunt.nvim: Old format backed up to: " .. backup_path, vim.log.levels.INFO)
+
+		-- Save new format
+		M.save_bookmarks(storage_to_bookmarks(data, data.project and data.project.root_absolute or nil), filepath)
+	elseif version ~= CURRENT_FORMAT_VERSION then
+		vim.notify("haunt.nvim: Unsupported format version: " .. tostring(version), vim.log.levels.ERROR)
 		return {}
 	end
 
-	-- Check version compatibility
-	if data.version ~= 1 then
-		vim.notify("haunt.nvim: load_bookmarks: unsupported version: " .. tostring(data.version), vim.log.levels.ERROR)
-		return {}
-	end
+	-- Get current project root for path resolution
+	local project_root, _ = detect_project_root()
 
-	-- Validate bookmarks field
-	if type(data.bookmarks) ~= "table" then
-		vim.notify("haunt.nvim: load_bookmarks: invalid bookmarks field (not a table)", vim.log.levels.ERROR)
-		return {}
-	end
+	-- Always use detected project root for path resolution
+	-- (stored root is just metadata)
 
-	return data.bookmarks
+	return storage_to_bookmarks(data, project_root)
 end
 
 --- Generate a unique bookmark ID
---- @param file string Absolute path to the file
---- @param line number 1-based line number
---- @return string id A 16-character unique identifier
+---@param file string Absolute path to the file
+---@param line number 1-based line number
+---@return string id A 16-character unique identifier
 local function generate_bookmark_id(file, line)
 	local timestamp = tostring(vim.uv.hrtime())
 	local id_key = file .. tostring(line) .. timestamp
@@ -350,13 +507,12 @@ local function generate_bookmark_id(file, line)
 end
 
 --- Create a new bookmark. Does NOT save it!
---- @param file string Absolute path to the file
---- @param line number 1-based line number
---- @param note? string Optional annotation text
---- @return Bookmark|nil bookmark A new bookmark table, or nil if validation fails
---- @return string|nil error_msg Error message if validation fails
+---@param file string Absolute path to the file
+---@param line number 1-based line number
+---@param note? string Optional annotation text
+---@return Bookmark|nil bookmark A new bookmark table, or nil if validation fails
+---@return string|nil error_msg Error message if validation fails
 function M.create_bookmark(file, line, note)
-	-- Validate inputs
 	if type(file) ~= "string" or file == "" then
 		vim.notify("haunt.nvim: create_bookmark: file must be a non-empty string", vim.log.levels.ERROR)
 		return nil, "file must be a non-empty string"
@@ -377,20 +533,18 @@ function M.create_bookmark(file, line, note)
 		line = line,
 		note = note,
 		id = generate_bookmark_id(file, line),
-		extmark_id = nil, -- Will be set by display layer
+		extmark_id = nil,
 	}
 end
 
 --- Validate a bookmark structure
---- @param bookmark any The value to validate
---- @return boolean valid True if the bookmark structure is valid
+---@param bookmark any The value to validate
+---@return boolean valid True if the bookmark structure is valid
 function M.is_valid_bookmark(bookmark)
-	-- Check that bookmark is a table
 	if type(bookmark) ~= "table" then
 		return false
 	end
 
-	-- required fields
 	if type(bookmark.file) ~= "string" or bookmark.file == "" then
 		return false
 	end
@@ -403,7 +557,6 @@ function M.is_valid_bookmark(bookmark)
 		return false
 	end
 
-	-- optional fields (nil | right type)
 	if bookmark.note ~= nil and type(bookmark.note) ~= "string" then
 		return false
 	end
