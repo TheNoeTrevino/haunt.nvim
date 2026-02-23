@@ -160,7 +160,8 @@ end
 function M.get_storage_path()
 	local config = require("haunt.config").get()
 	local data_dir = M.ensure_data_dir()
-	local repo_root = get_git_root() or vim.fn.getcwd()
+	local git_info = M.get_git_info()
+	local repo_root = git_info.root or vim.fn.getcwd()
 
 	-- Skip branch scoping if per_branch_bookmarks is disabled
 	if not config.per_branch_bookmarks then
@@ -168,7 +169,7 @@ function M.get_storage_path()
 		return data_dir .. hash .. ".json"
 	end
 
-	local branch = get_git_branch() or "__default__"
+	local branch = git_info.branch or "__default__"
 	local key = repo_root .. "|" .. branch
 	local hash = vim.fn.sha256(key):sub(1, 12)
 
