@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.8.0...v0.8.1) (2026-02-23)
+
+
+### Bug Fixes
+
+* use cache instead of fetching ([740d664](https://github.com/TheNoeTrevino/haunt.nvim/commit/740d664987fd13eadf31d05511ce4090ec149c7e))
+* use cache instead of fetching ([8d82b88](https://github.com/TheNoeTrevino/haunt.nvim/commit/8d82b88d50049803966089ee85574c1a22fd89be))
+
 ## [0.8.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.7.1...v0.8.0) (2026-02-05)
 
 
