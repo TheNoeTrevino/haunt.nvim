@@ -64,6 +64,9 @@ local restoration = nil
 ---@private
 ---@type SidekickModule|nil
 local sidekick = nil
+---@private
+---@type HooksModule|nil
+local hooks = nil
 
 ---@private
 local function ensure_modules()
@@ -84,6 +87,9 @@ local function ensure_modules()
 	end
 	if not sidekick then
 		sidekick = require("haunt.sidekick")
+	end
+	if not hooks then
+		hooks = require("haunt.hooks")
 	end
 end
 
@@ -121,6 +127,7 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 	---@cast store -nil
 	---@cast display -nil
 	---@cast persistence -nil
+	---@cast hooks -nil
 
 	-- Create bookmark with unique ID
 	local new_bookmark, err = persistence.create_bookmark(filepath, line, note)
@@ -166,6 +173,13 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 		return false
 	end
 
+	hooks.emit_create({
+		bookmark = new_bookmark,
+		bufnr = bufnr,
+		file = filepath,
+		line = line,
+	})
+
 	return true
 end
 
@@ -179,6 +193,7 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
+	---@cast hooks -nil
 
 	local old_note = bookmark.note
 	local old_annotation_extmark_id = bookmark.annotation_extmark_id
@@ -211,6 +226,15 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 		return false
 	end
 
+	hooks.emit_update({
+		bookmark = bookmark,
+		bufnr = bufnr,
+		file = bookmark.file,
+		line = line,
+		old_note = old_note,
+		new_note = new_note,
+	})
+
 	return true
 end
 
@@ -229,6 +253,7 @@ function M.toggle_annotation()
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
+	---@cast hooks -nil
 
 	require("haunt")._ensure_initialized()
 
@@ -263,13 +288,24 @@ function M.toggle_annotation()
 	end
 
 	-- toggle visibility
+	local visible
 	if existing_bookmark.annotation_extmark_id then
 		display.hide_annotation(bufnr, existing_bookmark.annotation_extmark_id)
 		existing_bookmark.annotation_extmark_id = nil
+		visible = false
 	else
 		local extmark_id = display.show_annotation(bufnr, line, existing_bookmark.note)
 		existing_bookmark.annotation_extmark_id = extmark_id
+		visible = true
 	end
+
+	hooks.emit_toggle({
+		bookmark = existing_bookmark,
+		bufnr = bufnr,
+		file = filepath,
+		line = line,
+		visible = visible,
+	})
 
 	return true
 end
@@ -289,10 +325,12 @@ function M.toggle_all_lines()
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
+	---@cast hooks -nil
 
 	_annotations_visible = not _annotations_visible
 
 	local bookmarks = store.get_all_raw()
+	local toggled_count = 0
 	for _, bookmark in ipairs(bookmarks) do
 		if not bookmark.note then
 			goto continue
@@ -346,8 +384,15 @@ function M.toggle_all_lines()
 			end
 		end
 
+		toggled_count = toggled_count + 1
+
 		::continue::
 	end
+
+	hooks.emit_toggle_all({
+		visible = _annotations_visible,
+		count = toggled_count,
+	})
 
 	return _annotations_visible
 end
@@ -372,6 +417,7 @@ end
 function M.delete()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	require("haunt")._ensure_initialized()
 
@@ -403,6 +449,13 @@ function M.delete()
 		vim.notify("haunt.nvim: Failed to save bookmarks after removal", vim.log.levels.ERROR)
 		return false
 	end
+
+	hooks.emit_delete({
+		bookmark = existing_bookmark,
+		bufnr = bufnr,
+		file = filepath,
+		line = line,
+	})
 
 	vim.notify("haunt.nvim: Bookmark deleted", vim.log.levels.INFO)
 	return true
@@ -494,6 +547,7 @@ end
 function M.clear()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	local current_file = utils.normalize_filepath(vim.fn.expand("%"))
 
@@ -529,7 +583,21 @@ function M.clear()
 	local save_ok = store.save()
 
 	if save_ok then
+		for _, bookmark in ipairs(file_bookmarks) do
+			hooks.emit_delete({
+				bookmark = bookmark,
+				bufnr = bufnr,
+				file = bookmark.file,
+				line = bookmark.line,
+			})
+		end
 		local count = #file_bookmarks
+		hooks.emit_clear({
+			bufnr = bufnr,
+			file = current_file,
+			bookmarks = file_bookmarks,
+			count = count,
+		})
 		vim.notify(string.format("haunt.nvim: Cleared %d bookmark(s) from current file", count), vim.log.levels.INFO)
 		return true
 	else
@@ -550,6 +618,7 @@ end
 function M.clear_all()
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	if not store.has_bookmarks() then
 		vim.notify("haunt.nvim: No bookmarks to clear", vim.log.levels.INFO)
@@ -599,6 +668,21 @@ function M.clear_all()
 	local save_ok = store.save()
 
 	if save_ok then
+		for file_path, file_bookmarks in pairs(grouped_bookmarks) do
+			local bufnr = vim.fn.bufnr(file_path)
+			for _, bookmark in ipairs(file_bookmarks) do
+				hooks.emit_delete({
+					bookmark = bookmark,
+					bufnr = bufnr ~= -1 and bufnr or nil,
+					file = bookmark.file,
+					line = bookmark.line,
+				})
+			end
+		end
+		hooks.emit_clear_all({
+			count = count,
+			bookmarks = bookmarks,
+		})
 		vim.notify(string.format("haunt.nvim: Cleared all %d bookmark(s)", count), vim.log.levels.INFO)
 		return true
 	else
@@ -624,6 +708,7 @@ end
 function M.delete_by_id(bookmark_id)
 	ensure_modules()
 	---@cast store -nil
+	---@cast hooks -nil
 
 	local bookmark, _ = store.find_by_id(bookmark_id)
 	if not bookmark then
@@ -645,6 +730,13 @@ function M.delete_by_id(bookmark_id)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false
 	end
+
+	hooks.emit_delete({
+		bookmark = bookmark,
+		bufnr = bufnr,
+		file = bookmark.file,
+		line = bookmark.line,
+	})
 
 	return true
 end
@@ -691,9 +783,9 @@ end
 --- <
 function M.yank_locations(opts)
 	ensure_modules()
+	---@cast sidekick -nil
 	opts = opts or {}
 
-	---@cast sidekick -nil
 	local locations = sidekick.get_locations(opts)
 
 	if locations == "" then
@@ -869,6 +961,9 @@ function M.change_data_dir(new_dir)
 	---@cast display -nil
 	---@cast persistence -nil
 	---@cast restoration -nil
+	---@cast hooks -nil
+
+	local old_dir = persistence.ensure_data_dir()
 
 	store.save()
 
@@ -895,6 +990,11 @@ function M.change_data_dir(new_dir)
 			restoration.restore_buffer_bookmarks(bufnr, _annotations_visible)
 		end
 	end
+
+	hooks.emit_data_dir_change({
+		new_dir = new_dir,
+		old_dir = old_dir,
+	})
 
 	return true
 end
