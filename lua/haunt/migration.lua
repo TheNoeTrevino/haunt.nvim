@@ -67,41 +67,25 @@ local function read_json_file(path)
 end
 
 --- Walk v1 bookmarks and produce the v2 transformed list.
---- - In-project files become relative.
---- - Out-of-project files keep their absolute path with absolute=true.
---- - Runtime-only fields (extmark_id, annotation_extmark_id) are stripped.
+--- Delegates to `persistence._build_serializable`; v1 bookmarks have no
+--- `absolute` field, so every entry is tested against the project root.
 ---@param v1_bookmarks table[] Bookmarks from the v1 file
 ---@param project_root string Project root absolute path
 ---@return table[] transformed
 ---@return number relative_count
 ---@return number absolute_count
 local function transform_bookmarks(v1_bookmarks, project_root)
-	local utils = require("haunt.utils")
-	local transformed = {}
-	local relative_count = 0
+	local persistence = require("haunt.persistence")
+	local transformed = persistence._build_serializable(v1_bookmarks, project_root)
+
 	local absolute_count = 0
-
-	for i, bookmark in ipairs(v1_bookmarks) do
-		local entry = {
-			line = bookmark.line,
-			note = bookmark.note,
-			id = bookmark.id,
-		}
-
-		local relative = utils.to_relative(bookmark.file, project_root)
-		if relative then
-			entry.file = relative
-			relative_count = relative_count + 1
-		else
-			entry.file = bookmark.file
-			entry.absolute = true
+	for _, entry in ipairs(transformed) do
+		if entry.absolute then
 			absolute_count = absolute_count + 1
 		end
-
-		transformed[i] = entry
 	end
 
-	return transformed, relative_count, absolute_count
+	return transformed, #transformed - absolute_count, absolute_count
 end
 
 --- Resolve config + project info into the legacy and current storage paths.

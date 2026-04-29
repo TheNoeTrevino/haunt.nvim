@@ -30,6 +30,7 @@
 ---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
 ---@field create_bookmark fun(file: string, line: number, note?: string): Bookmark|nil, string|nil
 ---@field is_valid_bookmark fun(bookmark: table): boolean
+---@field _build_serializable fun(bookmarks: Bookmark[], project_root?: string|nil): table[]
 
 ---@private
 ---@type PersistenceModule
@@ -128,10 +129,13 @@ end
 ---   are stored as absolute paths with `absolute=true`.
 --- - Runtime-only fields (extmark IDs) are stripped.
 ---@param bookmarks Bookmark[] In-memory bookmarks list
+---@param project_root string|nil Project root; defaults to the cached project info
 ---@return table[] serializable Transformed bookmarks ready to be JSON-encoded
-local function build_serializable(bookmarks)
+function M._build_serializable(bookmarks, project_root)
 	local utils = require("haunt.utils")
-	local project_root = require("haunt.project").get_info().root
+	if project_root == nil then
+		project_root = require("haunt.project").get_info().root
+	end
 	local result = {}
 
 	for i, bookmark in ipairs(bookmarks) do
@@ -159,48 +163,59 @@ local function build_serializable(bookmarks)
 	return result
 end
 
+--- Build the JSON payload + storage path for a save operation.
+--- Shared by sync and async save paths.
+---@param bookmarks table
+---@param filepath? string
+---@return {storage_path: string, json_str: string}|nil payload
+---@return string|nil err
+local function build_save_payload(bookmarks, filepath)
+	if type(bookmarks) ~= "table" then
+		return nil, "bookmarks must be a table"
+	end
+
+	local storage_path = filepath or M.get_storage_path()
+	if not storage_path then
+		return nil, "could not determine storage path"
+	end
+
+	M.ensure_data_dir()
+
+	local data = {
+		version = STORAGE_VERSION,
+		bookmarks = M._build_serializable(bookmarks),
+	}
+
+	local ok, json_str = pcall(vim.json.encode, data)
+	if not ok then
+		return nil, "JSON encoding failed: " .. tostring(json_str)
+	end
+
+	return { storage_path = storage_path, json_str = json_str }, nil
+end
+
 --- Save bookmarks to JSON file
 ---@param bookmarks table Array of bookmark tables to save
 ---@param filepath? string Optional custom file path (defaults to git-based path)
 ---@return boolean success True if save was successful, false otherwise
 function M.save_bookmarks(bookmarks, filepath)
-	-- Validate input
-	if type(bookmarks) ~= "table" then
-		vim.notify("haunt.nvim: save_bookmarks: bookmarks must be a table", vim.log.levels.ERROR)
-		return false
-	end
-
-	-- Get storage path
-	local storage_path = filepath or M.get_storage_path()
-	if not storage_path then
-		vim.notify("haunt.nvim: save_bookmarks: could not determine storage path", vim.log.levels.ERROR)
-		return false
-	end
-
-	if #bookmarks == 0 then
-		vim.fn.delete(storage_path)
+	if type(bookmarks) == "table" and #bookmarks == 0 then
+		local storage_path = filepath or M.get_storage_path()
+		if storage_path then
+			vim.fn.delete(storage_path)
+		end
 		return true
 	end
 
-	-- Ensure storage directory exists
-	M.ensure_data_dir()
-
-	local data = {
-		version = STORAGE_VERSION,
-		bookmarks = build_serializable(bookmarks),
-	}
-
-	-- Encode to JSON
-	local ok, json_str = pcall(vim.json.encode, data)
-	if not ok then
-		vim.notify("haunt.nvim: save_bookmarks: JSON encoding failed: " .. tostring(json_str), vim.log.levels.ERROR)
+	local payload, err = build_save_payload(bookmarks, filepath)
+	if not payload then
+		vim.notify("haunt.nvim: save_bookmarks: " .. err, vim.log.levels.ERROR)
 		return false
 	end
 
-	-- Write to file
-	local write_ok = pcall(vim.fn.writefile, { json_str }, storage_path)
+	local write_ok = pcall(vim.fn.writefile, { payload.json_str }, payload.storage_path)
 	if not write_ok then
-		vim.notify("haunt.nvim: save_bookmarks: failed to write file: " .. storage_path, vim.log.levels.ERROR)
+		vim.notify("haunt.nvim: save_bookmarks: failed to write file: " .. payload.storage_path, vim.log.levels.ERROR)
 		return false
 	end
 
@@ -213,45 +228,26 @@ end
 ---@param filepath? string Optional custom file path (defaults to git-based path)
 ---@param callback? fun(success: boolean) Optional callback called when write completes
 function M.save_bookmarks_async(bookmarks, filepath, callback)
-	if type(bookmarks) ~= "table" then
-		if callback then
-			callback(false)
+	if type(bookmarks) == "table" and #bookmarks == 0 then
+		local storage_path = filepath or M.get_storage_path()
+		if storage_path then
+			vim.fn.delete(storage_path)
 		end
-		return
-	end
-
-	local storage_path = filepath or M.get_storage_path()
-	if not storage_path then
-		if callback then
-			callback(false)
-		end
-		return
-	end
-
-	if #bookmarks == 0 then
-		vim.fn.delete(storage_path)
 		if callback then
 			callback(true)
 		end
 		return
 	end
 
-	M.ensure_data_dir()
-
-	local data = {
-		version = STORAGE_VERSION,
-		bookmarks = build_serializable(bookmarks),
-	}
-
-	local ok, json_str = pcall(vim.json.encode, data)
-	if not ok then
+	local payload = build_save_payload(bookmarks, filepath)
+	if not payload then
 		if callback then
 			callback(false)
 		end
 		return
 	end
 
-	vim.uv.fs_open(storage_path, "w", 438, function(open_err, fd)
+	vim.uv.fs_open(payload.storage_path, "w", 438, function(open_err, fd)
 		if open_err or not fd then
 			vim.schedule(function()
 				if callback then
@@ -261,7 +257,7 @@ function M.save_bookmarks_async(bookmarks, filepath, callback)
 			return
 		end
 
-		vim.uv.fs_write(fd, json_str, -1, function(write_err, _)
+		vim.uv.fs_write(fd, payload.json_str, -1, function(write_err, _)
 			vim.uv.fs_close(fd, function(close_err)
 				local success = not write_err and not close_err
 				vim.schedule(function()

@@ -441,10 +441,6 @@ describe("haunt.persistence", function()
 			assert.is_true(save_ok)
 			assert.are.equal(0, vim.fn.filereadable(test_file))
 
-			local data = read_raw(test_file)
-			assert.are.equal(2, data.version)
-			assert.are.equal(0, #data.bookmarks)
-
 			local loaded = persistence.load_bookmarks(test_file)
 			assert.is_table(loaded)
 			assert.are.equal(0, #loaded)
