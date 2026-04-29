@@ -168,6 +168,8 @@ end
 
 ---@private
 function M._setup_restoration_autocmd()
+	require("haunt.project").setup_autocmds()
+
 	local augroup = vim.api.nvim_create_augroup("haunt_restore", { clear = true })
 	vim.api.nvim_create_autocmd("BufReadPost", {
 		group = augroup,
