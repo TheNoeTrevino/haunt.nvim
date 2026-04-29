@@ -47,6 +47,10 @@ local _autosave_setup = false
 local _annotations_visible = true
 
 ---@private
+---@type boolean
+local _absolute_notified = false
+
+---@private
 ---@type StoreModule|nil
 local store = nil
 ---@private
@@ -127,6 +131,18 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 	if not new_bookmark then
 		vim.notify("haunt.nvim: Failed to create bookmark: " .. (err or "unknown error"), vim.log.levels.ERROR)
 		return false
+	end
+
+	local project_root = require("haunt.project").get_info().root
+	if project_root and not utils.is_within_project(filepath, project_root) then
+		new_bookmark.absolute = true
+		if not _absolute_notified then
+			_absolute_notified = true
+			vim.notify(
+				"haunt.nvim: bookmark is outside project root; stored as absolute path (will not sync across machines)",
+				vim.log.levels.INFO
+			)
+		end
 	end
 
 	-- Set extmark for line tracking
@@ -909,6 +925,7 @@ function M._reset_for_testing()
 	store._reset_for_testing()
 	_autosave_setup = false
 	_annotations_visible = true
+	_absolute_notified = false
 end
 
 return M
