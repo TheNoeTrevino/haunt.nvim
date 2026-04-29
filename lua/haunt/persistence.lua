@@ -11,10 +11,11 @@
 --- Represents a single bookmark in haunt.nvim.
 ---
 ---@class Bookmark
----@field file string Absolute path to the bookmarked file
+---@field file string Absolute path while in memory; serialized as relative to project root unless `absolute=true`
 ---@field line number 1-based line number of the bookmark
 ---@field note string|nil Optional annotation text displayed as virtual text
 ---@field id string Unique bookmark identifier (auto-generated)
+---@field absolute? boolean Whether file is stored as absolute path (out-of-project)
 ---@field extmark_id number|nil Extmark ID for line tracking (internal)
 ---@field annotation_extmark_id number|nil Extmark ID for annotation display (internal)
 
@@ -187,6 +188,53 @@ function M.get_storage_path()
 	return data_dir .. hash .. ".json"
 end
 
+--- Build a serializable copy of bookmarks for v2 storage.
+--- Transforms in-memory bookmarks (absolute paths) into the on-disk form:
+---   - File paths are stored relative to the project root when possible.
+---   - Bookmarks flagged `absolute=true` keep their absolute path.
+---   - Bookmarks whose file lies outside the project root (or when no project
+---     root is available) are defensively flagged absolute on save to prevent
+---     producing nonsense relative paths.
+---   - Runtime-only fields (`extmark_id`, `annotation_extmark_id`) are stripped.
+---@param bookmarks Bookmark[] In-memory bookmarks list
+---@return table[] serializable Transformed bookmarks ready to be JSON-encoded
+local function build_serializable(bookmarks)
+	-- Lazy require to avoid potential circular dependencies at module-load time.
+	local utils = require("haunt.utils")
+	local project_root = require("haunt.project").get_info().root
+	local result = {}
+
+	for i, bookmark in ipairs(bookmarks) do
+		local entry = {
+			file = bookmark.file,
+			line = bookmark.line,
+			note = bookmark.note,
+			id = bookmark.id,
+		}
+
+		if bookmark.absolute == true then
+			entry.absolute = true
+		else
+			local relative = nil
+			if project_root then
+				relative = utils.to_relative(bookmark.file, project_root)
+			end
+
+			if relative then
+				entry.file = relative
+			else
+				-- Defensive: file is outside the project (or no project root).
+				-- Flag absolute so we don't write a nonsense relative path.
+				entry.absolute = true
+			end
+		end
+
+		result[i] = entry
+	end
+
+	return result
+end
+
 --- Save bookmarks to JSON file
 ---@param bookmarks table Array of bookmark tables to save
 ---@param filepath? string Optional custom file path (defaults to git-based path)
@@ -213,10 +261,10 @@ function M.save_bookmarks(bookmarks, filepath)
 	-- Ensure storage directory exists
 	M.ensure_data_dir()
 
-	-- Create data structure with version
+	-- Create data structure with version 2 (paths relative to project root)
 	local data = {
-		version = 1,
-		bookmarks = bookmarks,
+		version = 2,
+		bookmarks = build_serializable(bookmarks),
 	}
 
 	-- Encode to JSON
@@ -268,8 +316,8 @@ function M.save_bookmarks_async(bookmarks, filepath, callback)
 	M.ensure_data_dir()
 
 	local data = {
-		version = 1,
-		bookmarks = bookmarks,
+		version = 2,
+		bookmarks = build_serializable(bookmarks),
 	}
 
 	local ok, json_str = pcall(vim.json.encode, data)
@@ -434,6 +482,10 @@ function M.is_valid_bookmark(bookmark)
 	end
 
 	if bookmark.extmark_id ~= nil and type(bookmark.extmark_id) ~= "number" then
+		return false
+	end
+
+	if bookmark.absolute ~= nil and type(bookmark.absolute) ~= "boolean" then
 		return false
 	end
 

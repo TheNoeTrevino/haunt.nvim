@@ -318,6 +318,27 @@ describe("haunt.persistence", function()
 			{ desc = "empty file", bookmark = { file = "", line = 1, id = "abc" }, valid = false },
 			{ desc = "line < 1", bookmark = { file = "/test.lua", line = 0, id = "abc" }, valid = false },
 			{ desc = "empty id", bookmark = { file = "/test.lua", line = 1, id = "" }, valid = false },
+			{
+				desc = "absolute as string",
+				bookmark = { file = "/test.lua", line = 1, id = "abc", absolute = "yes" },
+				valid = false,
+			},
+		}
+
+		-- Positive cases for the optional `absolute` field
+		local absolute_field_cases = {
+			{
+				desc = "absolute = true",
+				bookmark = { file = "/test.lua", line = 1, id = "abc", absolute = true },
+			},
+			{
+				desc = "absolute = false",
+				bookmark = { file = "/test.lua", line = 1, id = "abc", absolute = false },
+			},
+			{
+				desc = "absolute missing",
+				bookmark = { file = "/test.lua", line = 1, id = "abc" },
+			},
 		}
 
 		for _, case in ipairs(valid_cases) do
@@ -331,10 +352,29 @@ describe("haunt.persistence", function()
 				assert.is_false(persistence.is_valid_bookmark(case.bookmark))
 			end)
 		end
+
+		for _, case in ipairs(absolute_field_cases) do
+			it("accepts bookmark with " .. case.desc, function()
+				assert.is_true(persistence.is_valid_bookmark(case.bookmark))
+			end)
+		end
 	end)
 
+	-- NOTE: These tests assert the on-disk shape of a save (no round-trip via
+	-- load_bookmarks), because save now writes v2 while load still understands
+	-- only v1. Proper round-trip tests will be re-enabled in task 168 once
+	-- load_bookmarks gains v2 support.
 	describe("save_bookmarks / load_bookmarks", function()
 		local test_file
+
+		--- Read the saved JSON back as a raw table.
+		---@param path string
+		---@return table data
+		local function read_raw(path)
+			local lines = vim.fn.readfile(path)
+			local json_str = table.concat(lines, "\n")
+			return vim.json.decode(json_str)
+		end
 
 		before_each(function()
 			local test_dir = vim.fn.stdpath("data") .. "/haunt/test/"
@@ -348,7 +388,7 @@ describe("haunt.persistence", function()
 			end
 		end)
 
-		it("saves and loads bookmarks correctly", function()
+		it("saves bookmarks to disk in v2 format", function()
 			local bookmarks = {
 				persistence.create_bookmark("/tmp/file1.lua", 10, "First"),
 				persistence.create_bookmark("/tmp/file2.lua", 20, "Second"),
@@ -359,12 +399,12 @@ describe("haunt.persistence", function()
 			assert.is_true(save_ok)
 			assert.are.equal(1, vim.fn.filereadable(test_file))
 
-			local loaded = persistence.load_bookmarks(test_file)
-			assert.are.equal(3, #loaded)
-			assert.are.equal(bookmarks[1].file, loaded[1].file)
-			assert.are.equal(bookmarks[1].line, loaded[1].line)
-			assert.are.equal(bookmarks[1].note, loaded[1].note)
-			assert.are.equal(bookmarks[1].id, loaded[1].id)
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal(3, #data.bookmarks)
+			assert.are.equal(bookmarks[1].line, data.bookmarks[1].line)
+			assert.are.equal(bookmarks[1].note, data.bookmarks[1].note)
+			assert.are.equal(bookmarks[1].id, data.bookmarks[1].id)
 		end)
 
 		it("returns empty table for non-existent file", function()
@@ -378,8 +418,9 @@ describe("haunt.persistence", function()
 			assert.is_true(save_ok)
 			assert.are.equal(0, vim.fn.filereadable(test_file))
 
-			local loaded = persistence.load_bookmarks(test_file)
-			assert.are.equal(0, #loaded)
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal(0, #data.bookmarks)
 		end)
 
 		it("deletes an existing file when saving an empty list", function()
@@ -405,14 +446,127 @@ describe("haunt.persistence", function()
 			local save_ok = persistence.save_bookmarks(bookmarks, test_file)
 			assert.is_true(save_ok)
 
-			local loaded = persistence.load_bookmarks(test_file)
-			assert.are.equal(100, #loaded)
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal(100, #data.bookmarks)
 
 			for i = 1, 100 do
-				assert.are.equal(bookmarks[i].file, loaded[i].file)
-				assert.are.equal(bookmarks[i].line, loaded[i].line)
-				assert.are.equal(bookmarks[i].id, loaded[i].id)
+				assert.are.equal(bookmarks[i].line, data.bookmarks[i].line)
+				assert.are.equal(bookmarks[i].id, data.bookmarks[i].id)
 			end
+		end)
+	end)
+
+	describe("v2 storage format", function()
+		local project_mock = require("tests.helpers.project_mock")
+		local test_file
+
+		--- Read the saved JSON back as a raw table.
+		---@param path string
+		---@return table data
+		local function read_raw(path)
+			local lines = vim.fn.readfile(path)
+			local json_str = table.concat(lines, "\n")
+			return vim.json.decode(json_str)
+		end
+
+		before_each(function()
+			local test_dir = vim.fn.stdpath("data") .. "/haunt/test/"
+			vim.fn.mkdir(test_dir, "p")
+			test_file = test_dir .. "test_v2_" .. os.time() .. "_" .. math.random(1, 1000000) .. ".json"
+		end)
+
+		after_each(function()
+			project_mock.restore()
+			if test_file and vim.fn.filereadable(test_file) == 1 then
+				vim.fn.delete(test_file)
+			end
+		end)
+
+		it("rewrites in-project absolute paths as relative on disk", function()
+			project_mock.set({ root = "/fake/proj", branch = "main", project_id = "fake" })
+
+			local bookmarks = {
+				{ file = "/fake/proj/src/main.lua", line = 10, id = "id1", note = "First" },
+				{ file = "/fake/proj/lib/util.lua", line = 5, id = "id2" },
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal("src/main.lua", data.bookmarks[1].file)
+			-- absolute is omitted (or false-equivalent) for in-project bookmarks
+			assert.is_true(data.bookmarks[1].absolute == nil or data.bookmarks[1].absolute == false)
+			assert.are.equal("lib/util.lua", data.bookmarks[2].file)
+		end)
+
+		it("preserves absolute path for bookmarks flagged absolute=true", function()
+			project_mock.set({ root = "/fake/proj", branch = "main", project_id = "fake" })
+
+			local bookmarks = {
+				{ file = "/etc/hosts", line = 1, id = "abs1", absolute = true },
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal("/etc/hosts", data.bookmarks[1].file)
+			assert.is_true(data.bookmarks[1].absolute)
+		end)
+
+		it("defensively flags out-of-project bookmarks as absolute on save", function()
+			project_mock.set({ root = "/fake/proj", branch = "main", project_id = "fake" })
+
+			-- No `absolute` flag set on the bookmark — save should detect it
+			-- lies outside the project and flag it absolute defensively rather
+			-- than producing a nonsense relative path.
+			local bookmarks = {
+				{ file = "/etc/hosts", line = 1, id = "stray1" },
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal("/etc/hosts", data.bookmarks[1].file)
+			assert.is_true(data.bookmarks[1].absolute)
+		end)
+
+		it("strips runtime-only extmark fields from the saved data", function()
+			project_mock.set({ root = "/fake/proj", branch = "main", project_id = "fake" })
+
+			local bookmarks = {
+				{
+					file = "/fake/proj/src/main.lua",
+					line = 10,
+					id = "id1",
+					extmark_id = 42,
+					annotation_extmark_id = 99,
+				},
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.is_nil(data.bookmarks[1].extmark_id)
+			assert.is_nil(data.bookmarks[1].annotation_extmark_id)
+		end)
+
+		it("flags absolute when project_root is unavailable", function()
+			project_mock.set({ root = nil, branch = nil, project_id = "noroot" })
+
+			local bookmarks = {
+				{ file = "/some/path/file.lua", line = 1, id = "noroot" },
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.are.equal("/some/path/file.lua", data.bookmarks[1].file)
+			assert.is_true(data.bookmarks[1].absolute)
 		end)
 	end)
 end)
