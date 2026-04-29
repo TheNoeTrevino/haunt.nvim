@@ -125,6 +125,65 @@ describe("haunt.persistence", function()
 				assert.is_true(default_config.per_branch_bookmarks)
 			end)
 		end)
+
+		describe("project_id keying", function()
+			local project_mock
+			local config
+
+			before_each(function()
+				project_mock = require("tests.helpers.project_mock")
+				config = require("haunt.config")
+			end)
+
+			after_each(function()
+				project_mock.restore()
+			end)
+
+			it("returns the same path for the same mocked project_id", function()
+				config.setup({ per_branch_bookmarks = true })
+				project_mock.set({ root = "/fake/root", branch = "main", project_id = "fixed-project-id" })
+
+				local path1 = persistence.get_storage_path()
+				local path2 = persistence.get_storage_path()
+				assert.are.equal(path1, path2)
+			end)
+
+			it("returns a different path when project_id changes", function()
+				config.setup({ per_branch_bookmarks = true })
+
+				project_mock.set({ root = "/fake/root", branch = "main", project_id = "project-a" })
+				local path_a = persistence.get_storage_path()
+
+				project_mock.set({ root = "/fake/root", branch = "main", project_id = "project-b" })
+				local path_b = persistence.get_storage_path()
+
+				assert.are_not.equal(path_a, path_b)
+			end)
+
+			it("produces different paths for different branches when project_id is constant", function()
+				config.setup({ per_branch_bookmarks = true })
+
+				project_mock.set({ root = "/fake/root", branch = "main", project_id = "fixed-project-id" })
+				local path_main = persistence.get_storage_path()
+
+				project_mock.set({ root = "/fake/root", branch = "feature/foo", project_id = "fixed-project-id" })
+				local path_feature = persistence.get_storage_path()
+
+				assert.are_not.equal(path_main, path_feature)
+			end)
+
+			it("ignores branch when per_branch_bookmarks is false", function()
+				config.setup({ per_branch_bookmarks = false })
+
+				project_mock.set({ root = "/fake/root", branch = "main", project_id = "fixed-project-id" })
+				local path_main = persistence.get_storage_path()
+
+				project_mock.set({ root = "/fake/root", branch = "feature/foo", project_id = "fixed-project-id" })
+				local path_feature = persistence.get_storage_path()
+
+				assert.are.equal(path_main, path_feature)
+			end)
+		end)
 	end)
 
 	describe("ensure_data_dir", function()

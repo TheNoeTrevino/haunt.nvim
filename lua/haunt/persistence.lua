@@ -160,26 +160,28 @@ function M.get_git_info()
 	return result
 end
 
---- Generates a storage path for the current git repository and branch
---- Uses a 12-character SHA256 hash of "repo_root|branch" for the filename
+--- Generates a storage path for the current project and branch
+--- Uses a 12-character SHA256 hash of "project_id|branch" for the filename
+--- The project_id is a stable identifier (root commit hash, repo path, or cwd)
+--- supplied by haunt.project, so forks/clones of the same project produce the
+--- same storage file regardless of where they live on disk.
 --- For detached HEAD states (e.g., tag checkouts), uses the short commit hash as identifier
---- Falls back to CWD and "__default__" branch when not in a git repository
---- When per_branch_bookmarks is false, only uses repo_root for the hash (bookmarks shared across branches)
+--- Falls back to "__default__" branch when not in a git repository
+--- When per_branch_bookmarks is false, only uses project_id for the hash (bookmarks shared across branches)
 ---@return string path The full path to the storage file
 function M.get_storage_path()
 	local config = require("haunt.config").get()
+	local info = require("haunt.project").get_info()
 	local data_dir = get_data_dir()
-	local git_info = M.get_git_info()
-	local repo_root = git_info.root or vim.fn.getcwd()
 
 	-- Skip branch scoping if per_branch_bookmarks is disabled
 	if not config.per_branch_bookmarks then
-		local hash = vim.fn.sha256(repo_root):sub(1, 12)
+		local hash = vim.fn.sha256(info.project_id):sub(1, 12)
 		return data_dir .. hash .. ".json"
 	end
 
-	local branch = git_info.branch or "__default__"
-	local key = repo_root .. "|" .. branch
+	local branch = info.branch or "__default__"
+	local key = info.project_id .. "|" .. branch
 	local hash = vim.fn.sha256(key):sub(1, 12)
 
 	return data_dir .. hash .. ".json"
