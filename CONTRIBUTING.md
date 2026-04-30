@@ -37,7 +37,9 @@ return {
 
 `navigation.lua` - Moving between annotations.
 
-`persistence.lua` - Disk storage of bookmarks, and git caching logic. This is the 'outside of neovim' module
+`persistence.lua` - Disk storage of bookmarks. This is the 'outside of neovim' module
+
+`project.lua` - Project root, branch, and project-id detection, with cached git lookups/logic.
 
 `store.lua` - In memory operations on bookmarks
 

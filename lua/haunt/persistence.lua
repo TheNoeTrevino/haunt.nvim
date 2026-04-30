@@ -354,7 +354,7 @@ function M.load_bookmarks(filepath)
 		vim.notify(
 			"haunt.nvim: v1 bookmark storage detected at "
 				.. storage_path
-				.. " — run :HauntMigrate to upgrade to v2",
+				.. ". Auto-migration runs on setup — if it didn't, run :HauntMigrate.",
 			vim.log.levels.WARN
 		)
 		return {}

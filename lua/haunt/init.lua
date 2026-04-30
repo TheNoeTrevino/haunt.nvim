@@ -61,6 +61,7 @@
 ---   :HauntClearAll
 ---   :HauntQf
 ---   :HauntQfAll
+---   :HauntMigrate          " Migrate legacy v1 bookmark file to v2 format
 --- <
 ---
 --- # Recommended Keymaps ~
@@ -98,25 +99,99 @@
 --- # Persistence ~
 ---                                                          *haunt-persistence*
 ---
---- Bookmarks are automatically saved and loaded:
----   - Location: `~/.local/share/nvim/haunt/` (or custom data_dir)
----   - Format: JSON files named by git repo + branch hash
----   - Auto-save: On text changes (debounced) and Neovim exit
----   - Per-branch: Each git branch has its own bookmark set
+--- Bookmarks are saved automatically as JSON, one file per (project,
+--- branch). The storage path is:
+--- >
+---   ~/.local/share/nvim/haunt/<hash>.json   (or your custom `data_dir`)
+--- <
 ---
---- This means you can:
----   - Switch branches without losing bookmarks
----   - Have different bookmarks for different features
----   - Share bookmark files with your team (optional)
+--- where `<hash>` is `sha256(project_id | branch)` truncated to 12 chars
+--- and `project_id` is, in order of preference:
+---
+---   1. Git root commit hash (`git rev-list --max-parents=0 HEAD`)
+---   2. Git repository top-level path
+---   3. Current working directory
+---
+--- Inside the JSON, file paths are stored *relative* to the project root.
+--- Bookmarks for files outside the project (e.g. `~/.config/nvim/init.lua`
+--- while you're working in another repo) are stored with absolute paths
+--- and an `absolute: true` flag, so they stay scoped to the project where
+--- they were created.
+---
+--- Because keying is by root commit (not by the absolute repo path on
+--- this machine), forks and clones of the same project share the same
+--- bookmark file. Combined with relative paths, the file is portable
+--- across machines and checkouts.
+---
+--- Auto-save fires on text changes (debounced) and on Neovim exit.
+--- Per-branch storage means each git branch keeps its own bookmark set.
+---
+--- # Sharing Bookmarks ~
+---                                                              *haunt-sharing*
+---
+--- Because the bookmark file is portable, you can share it across
+--- machines or with teammates. Two common workflows:
+---
+--- Team sharing via git: ~
+---
+--- Commit the bookmark file to your repo so teammates pick up the same
+--- hauntings. Either copy the existing file into the repo:
+--- >sh
+---   cp ~/.local/share/nvim/haunt/<hash>.json <repo>/.haunts.json
+--- <
+---
+--- Or set `data_dir` to a path inside the repo so the file lives there
+--- by default, then commit:
+--- >lua
+---   require("haunt").setup({
+---     data_dir = vim.fn.getcwd() .. "/.haunts/",
+---   })
+--- <
+---
+--- Personal sync across machines: ~
+---
+--- Point `data_dir` at a NAS mount or a private git repo so your
+--- bookmarks follow you across machines without leaking into the
+--- project's shared git history. NFS over Tailscale works well:
+--- >lua
+---   require("haunt").setup({ data_dir = "/mnt/nas/haunt/" })
+--- <
+---
+--- Or a private git repo cloned locally:
+--- >lua
+---   require("haunt").setup({
+---     data_dir = vim.fn.expand("~/haunt-bookmarks/"),
+---   })
+--- <
+---
+--- For folder-sync tools (Dropbox, Syncthing, iCloud), be aware that
+--- writes are non-atomic — concurrent writes from multiple machines
+--- can produce sync-conflict copies. Git-based sync is safer.
+---
+--- # Migrating from v1 ~
+---                                                            *haunt-migration*
+---
+--- v1 bookmark files (absolute paths, repo-path-keyed filename) are not
+--- auto-loaded. On startup, haunt.nvim auto-migrates the current
+--- project's v1 file to v2: it writes the v2 file at the new storage
+--- path and renames the old file to `<old>.v1.bak`. Nothing is deleted.
+---
+--- For projects where automatic migration didn't run (or to retry
+--- explicitly), invoke `:HauntMigrate` from inside the project.
 ---
 --- # Troubleshooting ~
 ---                                                       *haunt-troubleshooting*
 ---
 --- Bookmarks not persisting: ~
 ---
---- Make sure you're in a git repository with an active branch.
---- haunt.nvim uses git to determine where to save bookmarks.
---- If not in a git repo, bookmarks are stored per working directory.
+--- haunt.nvim derives a stable project identifier with the following
+--- fallback chain:
+---   1. Git root commit hash (`git rev-list --max-parents=0 HEAD`)
+---   2. Git repository top-level path
+---   3. Current working directory
+--- The storage filename is `sha256(project_id | branch)`. If you switch
+--- between these tiers (e.g. add a first commit to a new repo) the file
+--- name will change, which can look like "lost" bookmarks.
 ---
 --- Signs not showing: ~
 ---

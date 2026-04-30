@@ -216,6 +216,7 @@ Or you can use the user commands:
 `HauntQf`
 `HauntQfAll`
 `HauntChangeDataDir [path]`
+`HauntMigrate` - manually migrate an old (v1) bookmark file to the current (v2) on-disk format. Migration runs automatically on `setup()`, so this is only an escape hatch for projects where the auto-migration didn't run.
 
 It should be pretty obvious what these do.
 
@@ -294,6 +295,28 @@ return {
 Keep your annotations scoped to your branches.
 
 https://github.com/user-attachments/assets/1d2b996c-b0be-459c-9ff0-63e7a1ebb936
+
+#### Persistence, Sharing, and Migration
+
+Bookmarks are saved as one JSON file per project, per branch, keyed by your
+git root commit, with project-relative paths inside.
+This makes the file portable across machines, forks, and checkouts.
+
+Here are some ideas for how to use this for inspiration:
+
+- Store haunt annotation on a NAS and load them across machines (you can use tailscale!!)
+- Share with teammates by committing the bookmark files to git, and pointing everyone to the same `data_dir`
+  * data can be `vim.fn.getcwd() .. "/.haunt/"`
+
+For more details, see the help docs:
+
+- `:h haunt-persistence` — storage format and project keying
+- `:h haunt-sharing` — share with teammates via git, or sync privately across your own machines (NAS, Tailscale, private repo)
+- `:h haunt-migration` — upgrading from the v1 format
+
+The goal of this was to be flexible enough to support a variety of workflows, while still being simple and intuitive to use out of the box.
+
+Have fun!
 
 ### Project-Specific Bookmarks
 Use `change_data_dir` to scope bookmarks per project/directory:
