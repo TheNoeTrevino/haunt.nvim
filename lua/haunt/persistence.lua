@@ -255,23 +255,39 @@ function M.save_bookmarks_async(bookmarks, filepath, callback, project_root)
 		return
 	end
 
-	vim.uv.fs_open(payload.storage_path, "w", 438, function(open_err, fd)
+	-- Atomic write: stream to <path>.tmp, then rename onto the destination.
+	-- fs_open with "w" truncates the target in place, so a failed write or
+	-- a crash mid-stream would leave the user's bookmark file empty. POSIX
+	-- rename within a directory is atomic, so the visible file is either
+	-- the previous contents or the fully-written new contents — never half.
+	local tmp_path = payload.storage_path .. ".tmp." .. vim.uv.os_getpid()
+
+	local function finish(success)
+		if not success then
+			pcall(vim.uv.fs_unlink, tmp_path)
+		end
+		vim.schedule(function()
+			if callback then
+				callback(success)
+			end
+		end)
+	end
+
+	vim.uv.fs_open(tmp_path, "w", 438, function(open_err, fd)
 		if open_err or not fd then
-			vim.schedule(function()
-				if callback then
-					callback(false)
-				end
-			end)
+			finish(false)
 			return
 		end
 
 		vim.uv.fs_write(fd, payload.json_str, -1, function(write_err, _)
 			vim.uv.fs_close(fd, function(close_err)
-				local success = not write_err and not close_err
-				vim.schedule(function()
-					if callback then
-						callback(success)
-					end
+				if write_err or close_err then
+					finish(false)
+					return
+				end
+
+				vim.uv.fs_rename(tmp_path, payload.storage_path, function(rename_err)
+					finish(not rename_err)
 				end)
 			end)
 		end)

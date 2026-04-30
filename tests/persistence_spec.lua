@@ -516,6 +516,34 @@ describe("haunt.persistence", function()
 			end
 			assert.is_true(saw_failure, "expected a failure notify when writefile returns -1")
 		end)
+
+		it("save_bookmarks_async writes to a temp path before swapping over the target", function()
+			-- The async save must not truncate the destination file in place —
+			-- if the write fails (or nvim exits) mid-write, the on-disk file
+			-- would be left empty and the user's bookmarks silently destroyed.
+			-- The fix: write to `<path>.tmp` first, then atomically rename
+			-- onto the final path. This test enforces that contract by spying
+			-- on the path passed to vim.uv.fs_open and asserting it is NOT
+			-- the destination path.
+			local opened_path = nil
+			local original_fs_open = vim.uv.fs_open
+			vim.uv.fs_open = function(path, flags, mode, cb)
+				opened_path = path
+				return original_fs_open(path, flags, mode, cb)
+			end
+
+			local bookmarks = {
+				persistence.create_bookmark("/tmp/file1.lua", 1),
+			}
+
+			persistence.save_bookmarks_async(bookmarks, test_file, nil)
+
+			vim.uv.fs_open = original_fs_open
+
+			assert.is_not_nil(opened_path)
+			assert.are_not.equal(test_file, opened_path)
+			assert.is_not_nil(opened_path:find("%.tmp", 1, false), "expected a .tmp suffix on the open path, got: " .. tostring(opened_path))
+		end)
 	end)
 
 	describe("v2 storage format", function()
