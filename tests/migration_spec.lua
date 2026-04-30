@@ -363,6 +363,66 @@ describe("haunt.migration", function()
 		assert.is_nil(data.bookmarks[1].annotation_extmark_id)
 	end)
 
+	it("aborts cleanly when rename of v1 to backup fails", function()
+		local old_path = v1_path_for(fake_project_root, fake_branch, fake_data_dir, true)
+		local new_path = persistence.get_storage_path()
+
+		write_json(old_path, {
+			version = 1,
+			bookmarks = {
+				{ file = "/fake/proj/src/main.lua", line = 10, id = "id1" },
+			},
+		})
+
+		-- Force fs_rename to fail. libuv returns false (no error) on failure.
+		local original_rename = vim.uv.fs_rename
+		vim.uv.fs_rename = function()
+			return false, "EACCES: permission denied", "EACCES"
+		end
+
+		-- api.reload must NOT be invoked on the failure path.
+		local api = require("haunt.api")
+		local original_reload = api.reload
+		local reload_calls = 0
+		api.reload = function()
+			reload_calls = reload_calls + 1
+			return true
+		end
+
+		local ok, err = pcall(migration.migrate_current_project)
+
+		vim.uv.fs_rename = original_rename
+		api.reload = original_reload
+
+		assert.is_true(ok, "migrate_current_project raised: " .. tostring(err))
+
+		-- v1 still in place (rename failed, so it was never moved).
+		assert.are.equal(1, vim.fn.filereadable(old_path))
+		assert.are.equal(0, vim.fn.filereadable(old_path .. ".v1.bak"))
+
+		-- v2 must have been cleaned up so we don't enter dual-state.
+		assert.are.equal(0, vim.fn.filereadable(new_path))
+
+		-- ERROR notify, not WARN+success.
+		local fail = find_notification("migration aborted")
+		assert.is_not_nil(fail)
+		assert.are.equal(vim.log.levels.ERROR, fail.level)
+		assert.is_not_nil(fail.msg:find(old_path .. ".v1.bak", 1, true))
+
+		assert.is_nil(find_notification("migration successful"))
+		assert.are.equal(0, reload_calls)
+
+		-- A subsequent auto_migrate must NOT trip the dual-state guard,
+		-- since v2 was cleaned up. Restore rename so the retry can succeed.
+		migration._reset_for_testing()
+		notifications = {}
+		migration.auto_migrate()
+
+		assert.is_nil(find_notification("cannot migrate"))
+		assert.are.equal(1, vim.fn.filereadable(new_path))
+		assert.are.equal(1, vim.fn.filereadable(old_path .. ".v1.bak"))
+	end)
+
 	it("calls api.reload after a successful migration", function()
 		local old_path = v1_path_for(fake_project_root, fake_branch, fake_data_dir, true)
 

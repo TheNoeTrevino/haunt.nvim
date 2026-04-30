@@ -142,12 +142,19 @@ local function do_migrate(info, old_path, new_path, data)
 	end
 
 	-- Rename v1 to .v1.bak rather than delete, so the user can roll back.
+	-- If the rename fails we'd be left in a dual-state (v1 + v2 both present),
+	-- which permanently locks future migrations. Delete the just-written v2 so
+	-- the next attempt starts from the same single-state v1 the user had.
 	local rename_ok, rename_result = pcall(vim.uv.fs_rename, old_path, backup_path)
 	if not rename_ok or not rename_result then
+		pcall(vim.uv.fs_unlink, new_path)
 		vim.notify(
-			"haunt.nvim: migrated to v2 but failed to rename old file to " .. backup_path .. " (left in place)",
-			vim.log.levels.WARN
+			"haunt.nvim: migration aborted — failed to rename v1 file to "
+				.. backup_path
+				.. ". v1 file preserved; resolve the filesystem issue and re-run :HauntMigrate.",
+			vim.log.levels.ERROR
 		)
+		return
 	end
 
 	local total = relative_count + absolute_count
