@@ -18,6 +18,7 @@
 ---@class MigrationModule
 ---@field migrate_current_project fun()
 ---@field auto_migrate fun()
+---@field ensure_done fun()
 ---@field _reset_for_testing fun()
 
 ---@private
@@ -225,9 +226,22 @@ function M.migrate_current_project()
 	do_migrate(info, old_path, new_path, data)
 end
 
+---@type boolean
+local _done = false
+
 --- Auto-migrate on startup. Silent on every non-issue; emits an idempotent
 --- ERROR notify only when both v1 and v2 storage files exist for the project.
+---
+--- Gated by a session-scoped `_done` flag so it runs at most once per session.
+--- setup() schedules this for startup latency; the first reader that hits
+--- persistence.load_bookmarks calls ensure_done() to close the race.
 function M.auto_migrate()
+	if _done then
+		return
+	end
+	-- Set the flag before doing any work so reentrant calls (e.g. via the
+	-- api.reload() at the end of do_migrate, which loads bookmarks) short-circuit.
+	_done = true
 	local paths = resolve_paths()
 	if not paths then
 		return
@@ -259,10 +273,21 @@ function M.auto_migrate()
 	do_migrate(info, old_path, new_path, data)
 end
 
+--- Synchronously block until the one-shot auto_migrate has run for this session.
+--- Readers (persistence.load_bookmarks) call this so a scheduled auto_migrate
+--- never races a synchronous read.
+function M.ensure_done()
+	if _done then
+		return
+	end
+	M.auto_migrate()
+end
+
 --- Reset session-scoped state for tests.
 ---@private
 function M._reset_for_testing()
 	_dual_state_notified = {}
+	_done = false
 end
 
 return M

@@ -274,7 +274,7 @@ function M._setup_restoration_autocmd()
 		end
 	end
 
-	require("haunt.migration").auto_migrate()
+	require("haunt.migration").ensure_done()
 end
 
 -- Check if any bookmarks exist
@@ -330,8 +330,13 @@ function M.setup(opts)
 		require("haunt.persistence").set_data_dir(user_config.data_dir)
 	end
 
-	-- Run inline so the user's data_dir is applied before migration probes for files.
-	require("haunt.migration").auto_migrate()
+	-- Defer migration off the startup path. Readers gate on migration.ensure_done()
+	-- (see persistence.load_bookmarks), so this is purely a latency optimization —
+	-- if a reader fires before this scheduled callback runs, the reader runs the
+	-- migration synchronously itself.
+	vim.schedule(function()
+		require("haunt.migration").auto_migrate()
+	end)
 end
 
 --- Get the current configuration.

@@ -266,6 +266,10 @@ end
 ---@param filepath? string Optional custom file path (defaults to git-based path)
 ---@return table bookmarks Array of bookmarks, or empty table if file doesn't exist or on error
 function M.load_bookmarks(filepath)
+	-- Close the race with a scheduled auto_migrate from setup(): any reader
+	-- blocks here until migration has run for this session.
+	require("haunt.migration").ensure_done()
+
 	-- Get storage path
 	local storage_path = filepath or M.get_storage_path()
 	if not storage_path then

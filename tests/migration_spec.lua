@@ -637,7 +637,7 @@ describe("haunt.migration", function()
 				end
 			end)
 
-			it("runs synchronously from haunt.setup() at the configured data_dir", function()
+			it("runs at the configured data_dir, gated by ensure_done()", function()
 				assert.are_not.equal(v1_path, v2_path)
 
 				require("haunt").setup({
@@ -645,8 +645,11 @@ describe("haunt.migration", function()
 					per_branch_bookmarks = true,
 				})
 
-				-- setup() must finish migration before returning — no
-				-- vim.schedule, no UIEnter, no waiting.
+				-- setup() schedules auto_migrate for startup latency.
+				-- Any reader (load_bookmarks) calls ensure_done() to close
+				-- the race; do that explicitly here.
+				migration.ensure_done()
+
 				assert.are.equal(0, vim.fn.filereadable(v1_path))
 				assert.are.equal(1, vim.fn.filereadable(v1_path .. ".v1.bak"))
 				assert.are.equal(1, vim.fn.filereadable(v2_path))
@@ -667,6 +670,7 @@ describe("haunt.migration", function()
 					data_dir = custom_data_dir,
 					per_branch_bookmarks = true,
 				})
+				migration.ensure_done()
 
 				assert.are.equal(1, vim.fn.filereadable(v1_path .. ".v1.bak"))
 				assert.are.equal(1, vim.fn.filereadable(v2_path))
