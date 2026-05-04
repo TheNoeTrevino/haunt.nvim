@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.0.0...v1.1.0) (2026-05-04)
+
+
+### Features
+
+* shell commands dont block startup ([530aa8e](https://github.com/TheNoeTrevino/haunt.nvim/commit/530aa8e663c9bfd8be6cb7a37b115daba8a474a0))
+* shell commands dont block startup ([04ab7a0](https://github.com/TheNoeTrevino/haunt.nvim/commit/04ab7a0f34bcf818431e85acdf33246e92f49168))
+
 ## [1.0.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v0.8.1...v1.0.0) (2026-05-03)
 
 
