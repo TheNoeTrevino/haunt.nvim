@@ -1021,6 +1021,7 @@ haunt.nvim provides the following user commands:
 `:HauntClearAll` - Clear all bookmarks across all files
 `:HauntChangeDataDir [path]` - Change bookmark data directory (for project-specific bookmarks)
 `:HauntMigrate` - Migrate bookmarks from v1 to v2 storage (project-relative paths)
+`:HauntReload` - Reload bookmarks from disk (e.g. after switching branches externally)
 
 ------------------------------------------------------------------------------
 Class ~
