@@ -554,6 +554,33 @@ describe("haunt.hooks", function()
 			assert.is_not_nil(received_ctx.bookmarks)
 			assert.is_number(received_ctx.count)
 		end)
+
+		it("does not emit onLoad when persistence reports a load failure", function()
+			helpers.reset_modules()
+			hooks = require("haunt.hooks")
+			api = require("haunt.api")
+			local config = require("haunt.config")
+			config.setup()
+			hooks._reset_for_testing()
+
+			local persistence = require("haunt.persistence")
+			local original_load = persistence.load_bookmarks
+			persistence.load_bookmarks = function()
+				return nil
+			end
+
+			local fired = false
+			hooks.on_load(function()
+				fired = true
+			end)
+
+			local ok = api.load()
+
+			persistence.load_bookmarks = original_load
+
+			assert.is_false(fired, "on_load must not fire when persistence failed to load")
+			assert.is_false(ok, "store.load must return false when persistence failed")
+		end)
 	end)
 
 	describe("onRestore", function()

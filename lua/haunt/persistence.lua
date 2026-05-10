@@ -262,9 +262,21 @@ local function resolve_v2_bookmarks(bookmarks)
 	return bookmarks
 end
 
---- Load bookmarks from JSON file
+--- Load bookmarks from JSON file.
+---
+--- Returns:
+---   - An array of bookmarks on a successful load.
+---   - `{}` when the storage file does not exist (a fresh user is a
+---     successful load with zero bookmarks).
+---   - `nil` on any actual load failure: storage path unresolvable,
+---     read/parse error, missing/unsupported version, v1 file detected,
+---     invalid structure. Each failure path emits its own notify.
+---
+--- Callers (store.load) use the nil return to distinguish "load failed —
+--- leave the in-memory store untouched and suppress on_load" from
+--- "loaded, nothing to do."
 ---@param filepath? string Optional custom file path (defaults to git-based path)
----@return table bookmarks Array of bookmarks, or empty table if file doesn't exist or on error
+---@return Bookmark[]|nil bookmarks Array on success/empty, nil on failure
 function M.load_bookmarks(filepath)
 	-- Close the race with a scheduled auto_migrate from setup(): any reader
 	-- blocks here until migration has run for this session.
@@ -274,7 +286,7 @@ function M.load_bookmarks(filepath)
 	local storage_path = filepath or M.get_storage_path()
 	if not storage_path then
 		vim.notify("haunt.nvim: load_bookmarks: could not determine storage path", vim.log.levels.WARN)
-		return {}
+		return nil
 	end
 
 	-- Check if file exists
@@ -287,7 +299,7 @@ function M.load_bookmarks(filepath)
 	local ok, lines = pcall(vim.fn.readfile, storage_path)
 	if not ok then
 		vim.notify("haunt.nvim: load_bookmarks: failed to read file: " .. storage_path, vim.log.levels.ERROR)
-		return {}
+		return nil
 	end
 
 	-- Join lines into single string
@@ -297,19 +309,19 @@ function M.load_bookmarks(filepath)
 	local decode_ok, data = pcall(vim.json.decode, json_str)
 	if not decode_ok then
 		vim.notify("haunt.nvim: load_bookmarks: JSON decoding failed: " .. tostring(data), vim.log.levels.ERROR)
-		return {}
+		return nil
 	end
 
 	-- Validate structure
 	if type(data) ~= "table" then
 		vim.notify("haunt.nvim: load_bookmarks: invalid data structure (not a table)", vim.log.levels.ERROR)
-		return {}
+		return nil
 	end
 
 	-- Validate version field
 	if not data.version then
 		vim.notify("haunt.nvim: load_bookmarks: missing version field", vim.log.levels.WARN)
-		return {}
+		return nil
 	end
 
 	if data.version == 1 then
@@ -319,19 +331,19 @@ function M.load_bookmarks(filepath)
 				.. ". Auto-migration runs on setup — if it didn't, run :HauntMigrate.",
 			vim.log.levels.WARN
 		)
-		return {}
+		return nil
 	end
 
 	if data.version == STORAGE_VERSION then
 		if type(data.bookmarks) ~= "table" then
 			vim.notify("haunt.nvim: load_bookmarks: invalid bookmarks field (not a table)", vim.log.levels.ERROR)
-			return {}
+			return nil
 		end
 		return resolve_v2_bookmarks(data.bookmarks)
 	end
 
 	vim.notify("haunt.nvim: load_bookmarks: unsupported version: " .. tostring(data.version), vim.log.levels.ERROR)
-	return {}
+	return nil
 end
 
 --- Generate a unique bookmark ID

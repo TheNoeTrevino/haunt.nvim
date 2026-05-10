@@ -698,7 +698,7 @@ describe("haunt.persistence", function()
 			assert.is_true(loaded[1].absolute)
 		end)
 
-		it("rejects v1 storage with a notify and returns empty", function()
+		it("rejects v1 storage with a notify and returns nil", function()
 			-- Hand-write a v1 file. load_bookmarks should refuse to load it
 			-- and direct the user to :HauntMigrate without crashing.
 			write_json(test_file, {
@@ -709,8 +709,7 @@ describe("haunt.persistence", function()
 			})
 
 			local loaded = persistence.load_bookmarks(test_file)
-			assert.is_table(loaded)
-			assert.are.equal(0, #loaded)
+			assert.is_nil(loaded)
 
 			-- File must NOT be deleted by load_bookmarks.
 			assert.are.equal(1, vim.fn.filereadable(test_file))
@@ -725,7 +724,7 @@ describe("haunt.persistence", function()
 			assert.is_true(saw_v1_warning)
 		end)
 
-		it("warns and returns empty when version field is missing", function()
+		it("warns and returns nil when version field is missing", function()
 			write_json(test_file, {
 				bookmarks = {
 					{ file = "/some/path/file.lua", line = 1, id = "noversion" },
@@ -733,8 +732,7 @@ describe("haunt.persistence", function()
 			})
 
 			local loaded = persistence.load_bookmarks(test_file)
-			assert.is_table(loaded)
-			assert.are.equal(0, #loaded)
+			assert.is_nil(loaded)
 
 			local saw_missing_version = false
 			for _, call in ipairs(notify_calls) do
@@ -779,8 +777,7 @@ describe("haunt.persistence", function()
 			})
 
 			local loaded = persistence.load_bookmarks(test_file)
-			assert.is_table(loaded)
-			assert.are.equal(0, #loaded)
+			assert.is_nil(loaded)
 
 			local saw_unsupported = false
 			for _, call in ipairs(notify_calls) do
