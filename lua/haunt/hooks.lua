@@ -37,6 +37,17 @@
 ---     print("Created bookmark:", ctx.bookmark.id)
 ---   end)
 --- <
+---
+--- ## Caveat — re-entrant emits ~
+---
+--- The registry does not guard against a callback re-emitting the same
+--- event it is handling (directly or transitively, e.g. an `on_create`
+--- callback that itself calls `api.annotate()` and creates another
+--- bookmark). Lua's call stack will grow until it overflows. Treat hook
+--- callbacks as observers — emit nothing, mutate nothing that triggers
+--- another emit of the same event. A handler list is snapshotted at the
+--- start of each emit, so adding or removing handlers from inside a
+--- callback is safe; only re-emission is the user's responsibility.
 
 --- Context passed to `on_create` callbacks.
 --- Fired after a bookmark is successfully created and persisted.
@@ -51,7 +62,10 @@
 --- Also fired once per bookmark during `clear()` and `clear_all()` operations.
 ---@class BookmarkDeletedContext
 ---@field bookmark Bookmark The bookmark that was deleted (visual elements already cleaned up)
----@field bufnr number|nil Buffer number where the bookmark existed (nil if buffer not loaded)
+---@field bufnr number|nil Buffer number where the bookmark existed. Always set for
+---   single-bookmark deletes (delete, delete_by_id) and for clear() which operates
+---   on the current buffer. Only nil for clear_all() emissions targeting bookmarks
+---   whose file isn't loaded in any buffer.
 ---@field file string Normalized absolute file path of the deleted bookmark
 ---@field line number 1-based line number where the bookmark was located
 
@@ -92,6 +106,11 @@
 
 --- Context passed to `on_pre_save` callbacks.
 --- Fired before bookmarks are written to disk. Useful for logging or validation.
+---
+--- Note on line numbers: `store.save` synchronizes each bookmark's `line` from
+--- its tracking extmark *before* emitting this event. Observers see the
+--- line numbers that are about to hit disk, not whatever was last cached in
+--- memory.
 ---@class PreSaveContext
 ---@field bookmarks Bookmark[] The full bookmarks array about to be saved (direct reference, do not mutate)
 ---@field count number Total number of bookmarks being saved
