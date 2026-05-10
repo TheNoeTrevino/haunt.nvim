@@ -115,6 +115,31 @@ local function cleanup_bookmark_visuals(bufnr, bookmark)
 	end
 end
 
+--- Re-create visual elements for a bookmark whose previous visuals were torn down.
+--- Used by delete-path rollback when save fails: the bookmark is being put back
+--- into the store, and the user's screen needs the sign/extmark/annotation back.
+---@param bufnr number Buffer number
+---@param bookmark Bookmark The bookmark to re-render. Its extmark/annotation IDs are reassigned.
+local function recreate_bookmark_visuals(bufnr, bookmark)
+	ensure_modules()
+	---@cast display -nil
+
+	local new_extmark_id = display.set_bookmark_mark(bufnr, bookmark)
+	if not new_extmark_id then
+		bookmark.extmark_id = nil
+		bookmark.annotation_extmark_id = nil
+		return
+	end
+	bookmark.extmark_id = new_extmark_id
+	display.place_sign(bufnr, bookmark.line, new_extmark_id)
+
+	if bookmark.note and _annotations_visible then
+		bookmark.annotation_extmark_id = display.show_annotation(bufnr, bookmark.line, bookmark.note)
+	else
+		bookmark.annotation_extmark_id = nil
+	end
+end
+
 --- Create a bookmark with visual elements and persist it
 --- This is a helper function to avoid code duplication between toggle_annotation() and annotate()
 ---@param bufnr number Buffer number
@@ -452,6 +477,10 @@ function M.delete()
 	-- Save to persistence
 	local save_ok = store.save()
 	if not save_ok then
+		-- Rollback: re-add to store and re-render visuals so the user's view
+		-- still matches what's on disk. Mirrors create_and_persist_bookmark.
+		store.add_bookmark(existing_bookmark)
+		recreate_bookmark_visuals(bufnr, existing_bookmark)
 		vim.notify("haunt.nvim: Failed to save bookmarks after removal", vim.log.levels.ERROR)
 		return false
 	end
@@ -727,6 +756,8 @@ function M.delete_by_id(bookmark_id)
 
 	local save_ok = store.save()
 	if not save_ok then
+		store.add_bookmark(bookmark)
+		recreate_bookmark_visuals(bufnr, bookmark)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false
 	end

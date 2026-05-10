@@ -315,6 +315,39 @@ describe("haunt.api", function()
 			local signs = vim.fn.sign_getplaced(bufnr, { group = "haunt_signs" })
 			assert.are.equal(0, #signs[1].signs)
 		end)
+
+		it("rolls back store and visuals when save fails", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			local before = api.get_bookmarks()
+			assert.are.equal(1, #before)
+			local original_id = before[1].id
+
+			local store = require("haunt.store")
+			local original_save = store.save
+			store.save = function()
+				return false
+			end
+
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			local ok = api.delete()
+
+			store.save = original_save
+
+			assert.is_false(ok)
+
+			local after = api.get_bookmarks()
+			assert.are.equal(1, #after, "bookmark must remain in store on save failure")
+			assert.are.equal(original_id, after[1].id)
+
+			local ns = display.get_namespace()
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, ns, 0, -1, {})
+			assert.is_true(#extmarks > 0, "visuals must be restored on save failure")
+
+			local signs = vim.fn.sign_getplaced(bufnr, { group = "haunt_signs" })
+			assert.is_true(#signs[1].signs > 0, "sign must be restored on save failure")
+		end)
 	end)
 
 	describe("delete_by_id", function()
@@ -352,6 +385,35 @@ describe("haunt.api", function()
 
 			assert.is_false(ok)
 			assert.are.equal(1, #api.get_bookmarks())
+		end)
+
+		it("rolls back store and visuals when save fails", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			local before = api.get_bookmarks()
+			assert.are.equal(1, #before)
+			local target_id = before[1].id
+
+			local store = require("haunt.store")
+			local original_save = store.save
+			store.save = function()
+				return false
+			end
+
+			local ok = api.delete_by_id(target_id)
+
+			store.save = original_save
+
+			assert.is_false(ok)
+
+			local after = api.get_bookmarks()
+			assert.are.equal(1, #after, "bookmark must remain in store on save failure")
+			assert.are.equal(target_id, after[1].id)
+
+			local ns = display.get_namespace()
+			local extmarks = vim.api.nvim_buf_get_extmarks(bufnr, ns, 0, -1, {})
+			assert.is_true(#extmarks > 0, "visuals must be restored on save failure")
 		end)
 	end)
 
