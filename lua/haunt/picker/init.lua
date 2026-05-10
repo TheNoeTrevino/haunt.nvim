@@ -38,7 +38,7 @@ local function ensure_modules()
 end
 
 ---@private
----@param name string Picker module name ("snacks", "telescope", "fallback")
+---@param name string Picker module name ("snacks", "telescope", "fzf", "fallback")
 ---@return PickerModule
 local function lazy_picker(name)
 	---@type PickerModule|nil
