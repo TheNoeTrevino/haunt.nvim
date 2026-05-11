@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.1.0...v1.2.0) (2026-05-11)
+
+
+### Features
+
+* add hook registry and event definitions ([00052f9](https://github.com/TheNoeTrevino/haunt.nvim/commit/00052f96c6d2740433fcc8a943e87ca800034156))
+* emit hook events from bookmark lifecycle ([727df1b](https://github.com/TheNoeTrevino/haunt.nvim/commit/727df1bbeb0ef99b549505684ec9a3b9cbd82d4e))
+* **plugin:** register :HauntReload command ([1e33bb8](https://github.com/TheNoeTrevino/haunt.nvim/commit/1e33bb8d342b29ce5843850607e37f00388aaeed))
+* **store:** expose loaded storage path ([3b48573](https://github.com/TheNoeTrevino/haunt.nvim/commit/3b48573bdea8f3a4fd9dc9379c3d3233bd093434))
+* **watcher:** auto-reload bookmarks on branch checkout ([640694f](https://github.com/TheNoeTrevino/haunt.nvim/commit/640694f31f852dc2a42d8d97a4b5263932ac00da))
+
+
+### Bug Fixes
+
+* **api:** roll back state when save fails during delete ([25a45b4](https://github.com/TheNoeTrevino/haunt.nvim/commit/25a45b44dce13abd660b4b9d4c11a508e0a3b62b))
+* **hooks:** unregister once-wrapper before invoking user callback ([4eac63b](https://github.com/TheNoeTrevino/haunt.nvim/commit/4eac63be35fc41ac6668bfbc8f3b1668300ef7c7))
+* **store:** load_bookmarks error handling ([31a971e](https://github.com/TheNoeTrevino/haunt.nvim/commit/31a971e55e4c6858c1f9f4a4bedcb1b5596b8376))
+* **watcher:** clear watched gitdir when handle is closed ([7006993](https://github.com/TheNoeTrevino/haunt.nvim/commit/7006993616811b104058e13779e1f415b979f316))
+
 ## [1.1.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.0.0...v1.1.0) (2026-05-04)
 
 
