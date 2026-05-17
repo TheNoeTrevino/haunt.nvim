@@ -201,9 +201,10 @@ describe("haunt.display", function()
 
 			-- top border + 1 body row + bottom border = 3
 			assert.are.equal(3, #virt_lines)
-			-- Top border is a single chunk
-			assert.are.equal(1, #virt_lines[1])
-			assert.are.equal("╭", string.sub(virt_lines[1][1][1], 1, #"╭"))
+			-- Top border is 3 chunks: corner + edge + corner
+			assert.are.equal(3, #virt_lines[1])
+			assert.are.equal("╭", virt_lines[1][1][1])
+			assert.are.equal("╮", virt_lines[1][3][1])
 			-- Body row has border + content (padded to full width) + border
 			assert.are.equal("│", virt_lines[2][1][1])
 			assert.is_true(vim.startswith(virt_lines[2][2][1], "> fix this"))
@@ -256,7 +257,10 @@ describe("haunt.display", function()
 			-- Should have more than 3 lines (top + multiple body rows + bottom)
 			assert.is_true(#virt_lines > 3)
 			-- All body rows must fit within the box width
-			local box_width = vim.fn.strdisplaywidth(virt_lines[1][1][1])
+			local box_width = 0
+			for _, chunk in ipairs(virt_lines[1]) do
+				box_width = box_width + vim.fn.strdisplaywidth(chunk[1])
+			end
 			for i = 2, #virt_lines - 1 do
 				local row_width = 0
 				for _, chunk in ipairs(virt_lines[i]) do
@@ -323,6 +327,146 @@ describe("haunt.display", function()
 				end
 			end
 			assert.is_false(found)
+		end)
+
+		it("uses single border when above_border = 'single'", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = "single" })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("┌", virt_lines[1][1][1])
+			assert.are.equal("┐", virt_lines[1][3][1])
+			assert.are.equal("│", virt_lines[2][1][1])
+			assert.are.equal("│", virt_lines[2][3][1])
+			local last = virt_lines[#virt_lines]
+			assert.are.equal("└", last[1][1])
+			assert.are.equal("┘", last[3][1])
+		end)
+
+		it("uses double border when above_border = 'double'", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = "double" })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("╔", virt_lines[1][1][1])
+			assert.are.equal("╗", virt_lines[1][3][1])
+			assert.are.equal("║", virt_lines[2][1][1])
+			assert.are.equal("║", virt_lines[2][3][1])
+		end)
+
+		it("accepts custom 8-element border array", function()
+			config.setup({
+				virt_text_pos = "above",
+				annotation_prefix = "> ",
+				above_border = { "+", "-", "+", "|", "+", "-", "+", "|" },
+			})
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("+", virt_lines[1][1][1])
+			assert.are.equal("+", virt_lines[1][3][1])
+			assert.are.equal("|", virt_lines[2][1][1])
+			assert.are.equal("|", virt_lines[2][3][1])
+			local last = virt_lines[#virt_lines]
+			assert.are.equal("+", last[1][1])
+			assert.are.equal("+", last[3][1])
+		end)
+
+		it("accepts border elements with highlight groups", function()
+			config.setup({
+				virt_text_pos = "above",
+				annotation_prefix = "> ",
+				above_border = {
+					{ "╭", "Special" },
+					{ "─", "Title" },
+					{ "╮", "Special" },
+					{ "│", "Comment" },
+					{ "╯", "Special" },
+					{ "─", "Title" },
+					{ "╰", "Special" },
+					{ "│", "Comment" },
+				},
+			})
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			-- Top border: corner hl distinct from edge hl
+			assert.are.equal("Special", virt_lines[1][1][2])
+			assert.are.equal("Title", virt_lines[1][2][2])
+			assert.are.equal("Special", virt_lines[1][3][2])
+			-- Left/right borders use the side highlight
+			assert.are.equal("Comment", virt_lines[2][1][2])
+			assert.are.equal("Comment", virt_lines[2][3][2])
+		end)
+
+		it("renders empty border with above_border = 'none'", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = "none" })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("", virt_lines[1][1][1])
+			assert.are.equal("", virt_lines[1][3][1])
+			assert.are.equal("", virt_lines[2][1][1])
+			assert.are.equal("", virt_lines[2][3][1])
+		end)
+
+		it("falls back to rounded for unknown preset strings", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = "shadow" })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("╭", virt_lines[1][1][1])
+			assert.are.equal("│", virt_lines[2][1][1])
+		end)
+
+		it("falls back to rounded for array length that does not divide 8", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = { "a", "b", "c" } })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("╭", virt_lines[1][1][1])
+			assert.are.equal("│", virt_lines[2][1][1])
+		end)
+
+		it("falls back to rounded for empty table", function()
+			config.setup({ virt_text_pos = "above", annotation_prefix = "> ", above_border = {} })
+
+			local extmark_id = display.show_annotation(bufnr, 2, "note")
+
+			local ns = display.get_namespace()
+			local details = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns, extmark_id, { details = true })
+			local virt_lines = details[3].virt_lines
+
+			assert.are.equal("╭", virt_lines[1][1][1])
+			assert.are.equal("│", virt_lines[2][1][1])
 		end)
 	end)
 

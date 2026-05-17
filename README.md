@@ -92,6 +92,7 @@ return {
     line_hl = nil,
     virt_text_pos = "eol",
     above_max_width = 80,
+    above_border = "rounded", -- "single", "double", "none", or character array
     data_dir = nil,
     per_branch_bookmarks = true,
     picker = "auto", -- "auto", "snacks", "telescope", or "fzf"
@@ -163,6 +164,20 @@ return {
   end,
 }
 ```
+
+### Above Annotations
+
+<details>
+  <summary>Click to expand</summary>
+
+Set `virt_text_pos = "above"` to display annotations in a bordered box above the line instead of inline. The box wraps long text and adapts to the window width.
+
+- `above_max_width` — maximum box width in columns (default `80`, clamped to window width)
+- `above_border` — border style: `"rounded"` (default), `"single"`, `"double"`, `"none"`, or a character array like `{"╭", "─", "╮", "│", "╯", "─", "╰", "│"}`
+
+![Above annotation demo](https://github.com/user-attachments/assets/4e70c3a6-5317-461e-abd1-c721e676d781)
+
+</details>
 
 ## Usage
 

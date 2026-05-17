@@ -170,21 +170,82 @@ local function wrap_text(text, max_width)
 	return result
 end
 
+local BORDER_PRESETS = {
+	rounded = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+	single = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
+	double = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
+}
+
+--- Resolve a border spec (preset string or array) into an 8-element array of {char, hl} pairs.
+--- Accepts preset strings ("rounded", "single", "double", "none") or an array of characters
+--- whose length divides 8 (cycled to fill all 8 positions). Each element can be a string or
+--- {char, hl_group}.
+---@param spec string|string[]|(string|string[])[]|nil
+---@param default_hl string Fallback highlight group when the element doesn't specify one
+---@return {[1]: string, [2]: string}[] border 8 elements: {char, hl_group}
+local function resolve_border(spec, default_hl)
+	if spec == nil or spec == "rounded" then
+		spec = BORDER_PRESETS.rounded
+	elseif type(spec) == "string" then
+		if spec == "none" then
+			return vim.fn["repeat"]({ { "", default_hl } }, 8)
+		end
+		local preset = BORDER_PRESETS[spec]
+		if not preset then
+			vim.notify(
+				string.format("haunt.nvim: unknown above_border preset %q, falling back to 'rounded'", spec),
+				vim.log.levels.WARN
+			)
+			preset = BORDER_PRESETS.rounded
+		end
+		spec = preset
+	end
+
+	if type(spec) ~= "table" or #spec == 0 then
+		vim.notify("haunt.nvim: invalid above_border value, falling back to 'rounded'", vim.log.levels.WARN)
+		spec = BORDER_PRESETS.rounded
+	elseif 8 % #spec ~= 0 then
+		vim.notify(
+			string.format(
+				"haunt.nvim: above_border array length %d does not divide 8, falling back to 'rounded'",
+				#spec
+			),
+			vim.log.levels.WARN
+		)
+		spec = BORDER_PRESETS.rounded
+	end
+
+	local raw = spec
+	local n = #raw
+	local out = {}
+	for i = 1, 8 do
+		local elem = raw[((i - 1) % n) + 1]
+		if type(elem) == "table" then
+			out[i] = { elem[1] or "", elem[2] or default_hl }
+		else
+			out[i] = { elem or "", default_hl }
+		end
+	end
+	return out
+end
+
 --- Build virtual lines for a boxed annotation displayed above the target line
 ---@param note string The annotation text (may contain newlines)
 ---@param prefix string Text to display before the first line (e.g. icon)
 ---@param hl_group string Highlight group for the content
----@param border_hl string Highlight group for the box border
+---@param border table Resolved 8-element border array from resolve_border()
 ---@param wrap_at number Max content width before wrapping
 ---@return table virt_lines Array of virtual line chunks for nvim_buf_set_extmark
-local function build_box_lines(note, prefix, hl_group, border_hl, wrap_at)
+local function build_box_lines(note, prefix, hl_group, border, wrap_at)
 	-- Split on literal "\n" (backslash-n typed into vim.fn.input) and real newlines
 	local lines = vim.split(note:gsub("\\n", "\n"), "\n")
 	local prefix_width = vim.fn.strdisplaywidth(prefix)
 	local indent = string.rep(" ", prefix_width)
 
-	-- 2 border chars (│…│) + 1 trailing padding take display space from wrap_at
-	local max_content_width = math.max((tonumber(wrap_at) or 80) - 3, 1)
+	local left_w = vim.fn.strdisplaywidth(border[8][1])
+	local right_w = vim.fn.strdisplaywidth(border[4][1])
+	local border_overhead = left_w + right_w + 1
+	local max_content_width = math.max((tonumber(wrap_at) or 80) - border_overhead, 1)
 
 	local content = {}
 	local max_width = 0
@@ -221,24 +282,32 @@ local function build_box_lines(note, prefix, hl_group, border_hl, wrap_at)
 	local inner_width = max_content_width + 1
 	local virt_lines = {}
 
+	local topleft, top, topright = border[1], border[2], border[3]
+	local right, bottomright = border[4], border[5]
+	local bottom, bottomleft, left = border[6], border[7], border[8]
+
 	-- Top border
 	table.insert(virt_lines, {
-		{ "╭" .. string.rep("─", inner_width) .. "╮", border_hl },
+		{ topleft[1], topleft[2] },
+		{ string.rep(top[1], inner_width), top[2] },
+		{ topright[1], topright[2] },
 	})
 
 	-- Body rows
 	for _, text in ipairs(content) do
 		local fill = inner_width - vim.fn.strdisplaywidth(text)
 		table.insert(virt_lines, {
-			{ "│", border_hl },
+			{ left[1], left[2] },
 			{ text .. string.rep(" ", fill), hl_group },
-			{ "│", border_hl },
+			{ right[1], right[2] },
 		})
 	end
 
 	-- Bottom border
 	table.insert(virt_lines, {
-		{ "╰" .. string.rep("─", inner_width) .. "╯", border_hl },
+		{ bottomleft[1], bottomleft[2] },
+		{ string.rep(bottom[1], inner_width), bottom[2] },
+		{ bottomright[1], bottomright[2] },
 	})
 
 	return virt_lines
@@ -280,7 +349,8 @@ function M.show_annotation(bufnr, line, note)
 			local info = vim.fn.getwininfo(win)[1]
 			text_width = math.min(max_width, info.width - info.textoff)
 		end
-		local box_lines = build_box_lines(note .. suffix, prefix, hl_group, "HauntAnnotationBorder", text_width)
+		local border = resolve_border(cfg.above_border, "HauntAnnotationBorder")
+		local box_lines = build_box_lines(note .. suffix, prefix, hl_group, border, text_width)
 		-- virt_lines_above on row 0 is invisible (Neovim clips virtual lines
 		-- above the window topline). Fall back to placing below line 1.
 		local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, M.get_namespace(), line - 1, 0, {
