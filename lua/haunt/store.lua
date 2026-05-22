@@ -159,6 +159,44 @@ local function ensure_loaded()
 	end
 end
 
+--- Pull each bookmark's current line from its tracking extmark.
+--- The visual extmark moves with text edits, but `bookmark.line` is set at
+--- creation and never reassigned — without this sync, reads (picker, save)
+--- see the stale on-create line instead of where the bookmark visually sits
+--- now (issues #72, #92).
+local function sync_lines_from_extmarks()
+	local display = require("haunt.display")
+	-- Cache the resolved bufnr per file so we make at most one `vim.fn.bufnr`
+	-- (buffer-list scan) per distinct file, not one per bookmark. `false` is
+	-- the sentinel for "already checked and not loaded" so the lookup stays
+	-- O(1) on subsequent bookmarks in the same file.
+	local bufnr_cache = {}
+	for _, bm in ipairs(bookmarks) do
+		if not bm.extmark_id then
+			goto continue
+		end
+
+		local bufnr = bufnr_cache[bm.file]
+		if bufnr == nil then
+			bufnr = vim.fn.bufnr(bm.file)
+			if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
+				bufnr = false
+			end
+			bufnr_cache[bm.file] = bufnr
+		end
+		if not bufnr then
+			goto continue
+		end
+
+		local cur = display.get_extmark_line(bufnr, bm.extmark_id)
+		if cur then
+			bm.line = cur
+		end
+
+		::continue::
+	end
+end
+
 --- Find a bookmark by its ID
 ---@param bookmark_id string The unique ID of the bookmark to find
 ---@return Bookmark|nil bookmark The bookmark if found, nil otherwise
@@ -186,7 +224,8 @@ function M.get_bookmark_at_line(filepath, line)
 		return nil, nil
 	end
 
-	-- Search through all bookmarks for one at this file and line
+	sync_lines_from_extmarks()
+
 	for i, bookmark in ipairs(bookmarks) do
 		if bookmark.file == filepath and bookmark.line == line then
 			return bookmark, i
@@ -213,6 +252,7 @@ end
 ---@return Bookmark[] bookmarks Array of all bookmarks
 function M.get_bookmarks()
 	ensure_loaded()
+	sync_lines_from_extmarks()
 	return vim.deepcopy(bookmarks)
 end
 
@@ -356,31 +396,6 @@ function M.reload()
 	_loaded_project_root = nil
 	_loaded_storage_path = nil
 	M.load()
-end
-
---- Pull each bookmark's current line from its tracking extmark.
---- The visual extmark moves with text edits, but `bookmark.line` is set at
---- creation and never reassigned — without this sync the on-disk line is
---- pinned forever (issue #72).
-local function sync_lines_from_extmarks()
-	local display = require("haunt.display")
-	for _, bm in ipairs(bookmarks) do
-		if not bm.extmark_id then
-			goto continue
-		end
-
-		local bufnr = vim.fn.bufnr(bm.file)
-		if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
-			goto continue
-		end
-
-		local cur = display.get_extmark_line(bufnr, bm.extmark_id)
-		if cur then
-			bm.line = cur
-		end
-
-		::continue::
-	end
 end
 
 --- Save bookmarks to persistent storage.
