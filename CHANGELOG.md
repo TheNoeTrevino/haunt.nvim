@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.2.0...v1.2.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* not getting bookmarks at line ([77f41c5](https://github.com/TheNoeTrevino/haunt.nvim/commit/77f41c502a85daed76af253276409fed4fd5bff7))
+
 ## [1.2.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.1.0...v1.2.0) (2026-05-11)
 
 
