@@ -866,4 +866,60 @@ describe("haunt.api", function()
 			)
 		end)
 	end)
+
+	-- Regression: issue #92. The extmark in the buffer correctly follows text
+	-- edits, but `bookmark.line` was only resynced from the extmark on save —
+	-- so any read path (picker, get_bookmarks) returned the stale on-create
+	-- line until a save happened. The picker would then jump to / display the
+	-- wrong line.
+	describe("get_bookmarks line follows extmark (issue #92)", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "line 1", "line 2", "line 3", "line 4" })
+			vim.api.nvim_win_set_cursor(0, { 3, 0 })
+			api.annotate("on line 3")
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("reports the synced line after lines are inserted above", function()
+			-- Sanity check: bookmark was created at line 3
+			local before = api.get_bookmarks()
+			assert.are.equal(1, #before)
+			assert.are.equal(3, before[1].line)
+
+			-- Insert 2 lines at the very top — the extmark should slide from
+			-- row 2 (0-indexed) to row 4, i.e. line 5 in 1-based terms.
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "new top 1", "new top 2" })
+
+			local after = api.get_bookmarks()
+			assert.are.equal(1, #after)
+			assert.are.equal(
+				5,
+				after[1].line,
+				"bookmark.line should follow the extmark after 2 lines are inserted above (was "
+					.. tostring(after[1].line)
+					.. ")"
+			)
+		end)
+
+		it("annotate at the new visual line updates existing bookmark, not duplicate", function()
+			-- Same setup as above: bookmark created at line 3, then 2 lines
+			-- inserted above so the extmark is now visually at line 5.
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "new top 1", "new top 2" })
+
+			-- Move cursor to the bookmark's new visual row and re-annotate.
+			-- Before the fix: get_bookmark_at_line(file, 5) misses (stale
+			-- bookmark.line == 3) and annotate creates a duplicate.
+			vim.api.nvim_win_set_cursor(0, { 5, 0 })
+			api.annotate("updated note")
+
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(1, #bookmarks, "annotate must update, not duplicate")
+			assert.are.equal("updated note", bookmarks[1].note)
+		end)
+	end)
 end)
