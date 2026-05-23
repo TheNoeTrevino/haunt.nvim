@@ -206,10 +206,7 @@ local function resolve_border(spec, default_hl)
 		spec = BORDER_PRESETS.rounded
 	elseif 8 % #spec ~= 0 then
 		vim.notify(
-			string.format(
-				"haunt.nvim: above_border array length %d does not divide 8, falling back to 'rounded'",
-				#spec
-			),
+			string.format("haunt.nvim: above_border array length %d does not divide 8, falling back to 'rounded'", #spec),
 			vim.log.levels.WARN
 		)
 		spec = BORDER_PRESETS.rounded
@@ -254,28 +251,29 @@ local function build_box_lines(note, prefix, hl_group, border, wrap_at)
 		local full_line = i == 1 and (prefix .. line) or (indent .. line)
 		local wrapped = wrap_text(full_line, max_content_width)
 		table.insert(content, wrapped[1])
-		local w = vim.fn.strdisplaywidth(wrapped[1])
-		if w > max_width then
-			max_width = w
+		local width = vim.fn.strdisplaywidth(wrapped[1])
+		if width > max_width then
+			max_width = width
 		end
 		for j = 2, #wrapped do
 			local continuation = indent .. wrapped[j]
-			local cw = vim.fn.strdisplaywidth(continuation)
-			if cw > max_content_width then
-				local rewrapped = wrap_text(continuation, max_content_width)
-				for _, rwl in ipairs(rewrapped) do
-					local rw = vim.fn.strdisplaywidth(rwl)
-					if rw > max_width then
-						max_width = rw
-					end
-					table.insert(content, rwl)
-				end
-			else
-				if cw > max_width then
-					max_width = cw
+			local content_width = vim.fn.strdisplaywidth(continuation)
+			if content_width <= max_content_width then
+				if content_width > max_width then
+					max_width = content_width
 				end
 				table.insert(content, continuation)
+				goto continue
 			end
+			local rewrapped = wrap_text(continuation, max_content_width)
+			for _, rwl in ipairs(rewrapped) do
+				local rw = vim.fn.strdisplaywidth(rwl)
+				if rw > max_width then
+					max_width = rw
+				end
+				table.insert(content, rwl)
+			end
+			::continue::
 		end
 	end
 
