@@ -299,8 +299,8 @@ Default configuration: ~
   	annotation_suffix = "",
   	line_hl = nil,
   	virt_text_pos = "eol",
-	above_max_width = 80,
-	above_border = "rounded",
+  	above_max_width = 80,
+  	above_border = "rounded",
   	data_dir = nil,
   	per_branch_bookmarks = true,
   	picker = "auto",
@@ -367,6 +367,7 @@ Fields ~
 {cleanup_buffer_tracking} `(fun(bufnr: number))`
 {change_data_dir} `(fun(new_dir: string|nil): boolean)`
 {reload} `(fun(reason?: ReloadReason): boolean)`
+{refresh_above_annotations} `(fun())`
 {_reset_for_testing} `(fun())`
 
 ------------------------------------------------------------------------------
