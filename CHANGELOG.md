@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.2.1...v1.3.0) (2026-06-07)
+
+
+### Features
+
+* above borders config options, demo to readme ([2acc045](https://github.com/TheNoeTrevino/haunt.nvim/commit/2acc045e45e04abbe6991ffebb0b67a63eb91126))
+* add above-annotations ([27881a4](https://github.com/TheNoeTrevino/haunt.nvim/commit/27881a4824e65531fef88e09500658dd8cba82c2))
+
 ## [1.2.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.2.0...v1.2.1) (2026-05-22)
 
 
