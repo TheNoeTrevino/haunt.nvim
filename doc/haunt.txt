@@ -299,6 +299,8 @@ Default configuration: ~
   	annotation_suffix = "",
   	line_hl = nil,
   	virt_text_pos = "eol",
+  	above_max_width = 80,
+  	above_border = "rounded",
   	data_dir = nil,
   	per_branch_bookmarks = true,
   	picker = "auto",
@@ -315,7 +317,9 @@ Fields ~
 {annotation_prefix} `(optional)` `(string)` Text to display before the annotation (default: '  ')
 {annotation_suffix} `(optional)` `(string)` Text to display after the annotation (default: '')
 {line_hl} `(optional)` `(string|nil)` The highlight group for the entire line (default: nil)
-{virt_text_pos} `(optional)` `(string)` Position of virtual text: "eol" (default), "eol_right_align", "overlay", "right_align", "inline"
+{virt_text_pos} `(optional)` `(string)` Position of virtual text: "eol" (default), "eol_right_align", "overlay", "right_align", "inline", "above"
+{above_max_width} `(optional)` `(number)` Maximum width for the "above" box (default: 80). The box is also clamped to the window width. Only applies when virt_text_pos = "above"
+{above_border} `(optional)` `(string|string[]|(string|string[])[])` Border style for the "above" box. Preset strings: "rounded" (default), "single", "double", "none". Also accepts an array of characters (clockwise from top-left); any length that divides 8 is cycled. Each element can be a string or {char, hl_group}.
 {data_dir} `(optional)` `(string|nil)` Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
 {picker} `(optional)` "`(snacks)`"|"telescope"|"fzf"|"auto" Which picker to use: "snacks", "telescope", "fzf", or "auto" (default: "auto"). "auto" tries Snacks first, then Telescope, then fzf-lua, then vim.ui.select
 {picker_keys} `(table<string, table>)` Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
@@ -363,6 +367,7 @@ Fields ~
 {cleanup_buffer_tracking} `(fun(bufnr: number))`
 {change_data_dir} `(fun(new_dir: string|nil): boolean)`
 {reload} `(fun(reason?: ReloadReason): boolean)`
+{refresh_above_annotations} `(fun())`
 {_reset_for_testing} `(fun())`
 
 ------------------------------------------------------------------------------

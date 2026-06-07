@@ -307,6 +307,16 @@ function M.setup_autocmds()
 		end,
 		desc = "Auto-save all bookmarks before Vim exits",
 	})
+
+	vim.api.nvim_create_autocmd({ "VimResized", "WinResized" }, {
+		group = augroup,
+		callback = function()
+			vim.schedule(function()
+				require("haunt.api").refresh_above_annotations()
+			end)
+		end,
+		desc = "Re-wrap above annotations to fit new window width",
+	})
 end
 
 --- Setup function for haunt.nvim.

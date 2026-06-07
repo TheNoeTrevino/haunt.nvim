@@ -29,6 +29,7 @@
 ---@field cleanup_buffer_tracking fun(bufnr: number)
 ---@field change_data_dir fun(new_dir: string|nil): boolean
 ---@field reload fun(reason?: ReloadReason): boolean
+---@field refresh_above_annotations fun()
 ---@field _reset_for_testing fun()
 
 ---@private
@@ -1045,6 +1046,58 @@ end
 --- WARNING: This will clear ALL bookmarks from memory without persisting
 --- Only use in test environments
 ---@private
+--- Re-render all visible "above" annotations so they adapt to the current
+--- window width. Called on resize events.
+function M.refresh_above_annotations()
+	ensure_modules()
+	---@cast store -nil
+	---@cast display -nil
+
+	if not _annotations_visible then
+		return
+	end
+
+	local cfg = require("haunt.config").get()
+	if (cfg.virt_text_pos or "eol") ~= "above" then
+		return
+	end
+
+	local bookmarks = store.get_all_raw()
+	for _, bookmark in ipairs(bookmarks) do
+		if not bookmark.note or not bookmark.annotation_extmark_id then
+			goto continue
+		end
+
+		local bufnr = vim.fn.bufnr(bookmark.file)
+		if bufnr == -1 or not vim.api.nvim_buf_is_valid(bufnr) then
+			goto continue
+		end
+
+		local current_line = nil
+		if bookmark.extmark_id then
+			current_line = display.get_extmark_line(bufnr, bookmark.extmark_id)
+		end
+		if not current_line then
+			current_line = bookmark.line
+		end
+
+		local line_count = vim.api.nvim_buf_line_count(bufnr)
+		if current_line < 1 or current_line > line_count then
+			goto continue
+		end
+
+		display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
+		local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
+		if ok then
+			bookmark.annotation_extmark_id = extmark_id
+		else
+			bookmark.annotation_extmark_id = nil
+		end
+
+		::continue::
+	end
+end
+
 function M._reset_for_testing()
 	ensure_modules()
 	---@cast store -nil
