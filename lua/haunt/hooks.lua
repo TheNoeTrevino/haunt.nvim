@@ -159,7 +159,7 @@
 ---@field old_dir string The previous data directory path
 
 --- Reasons that can drive a reload. Threaded through `api.reload(reason)`.
----@alias ReloadReason "manual"|"branch_change"|"data_dir_change"|"migration"
+---@alias ReloadReason "manual"|"branch_change"|"data_dir_change"|"migration"|"external_write"
 
 --- Context passed to `on_reload` callbacks.
 --- Fired at the end of `api.reload()`, after the store has been reloaded from
@@ -167,7 +167,7 @@
 --- Distinct from `on_load`: `on_load` fires on first load too, while `on_reload`
 --- fires only on subsequent reloads and includes a discriminator for why.
 ---@class ReloadContext
----@field reason ReloadReason What triggered the reload ("manual" = `:HauntReload`)
+---@field reason ReloadReason What triggered the reload ("manual" = `:HauntReload`, "external_write" = the storage file was changed by another process, e.g. the `haunt` CLI)
 ---@field bookmarks Bookmark[] The bookmarks present after reload (direct reference, do not mutate)
 ---@field count number Total number of bookmarks after reload
 

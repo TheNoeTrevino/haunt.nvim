@@ -326,6 +326,9 @@ function M.load()
 	_loaded_project_root = info.root
 	_loaded_storage_path = persistence.get_storage_path()
 
+	-- What we just read is by definition in sync with us.
+	require("haunt.watcher").mark_synced(_loaded_storage_path)
+
 	hooks.emit_load({
 		bookmarks = bookmarks,
 		count = #bookmarks,
@@ -371,6 +374,10 @@ function M.save()
 	})
 
 	local success = persistence.save_bookmarks(synced, _loaded_storage_path, _loaded_project_root)
+
+	-- Record the file state we just produced so the storage watcher doesn't
+	-- mistake our own write for an external one and reload on top of itself.
+	require("haunt.watcher").mark_synced(_loaded_storage_path)
 
 	hooks.emit_post_save({
 		bookmarks = synced,

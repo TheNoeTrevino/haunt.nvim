@@ -613,10 +613,6 @@ describe("haunt.migration", function()
 			local v2_path
 
 			before_each(function()
-				-- Restore the real ensure_data_dir so set_data_dir drives the
-				-- path; the outer before_each pins it to fake_data_dir.
-				persistence.ensure_data_dir = original_ensure_data_dir
-
 				custom_data_dir = vim.fn.tempname() .. "_haunt_setup/"
 				vim.fn.mkdir(custom_data_dir, "p")
 				v1_path = v1_path_for(fake_project_root, fake_branch, custom_data_dir, true)
