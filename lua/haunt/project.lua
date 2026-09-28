@@ -93,7 +93,7 @@ end
 ---@param root string|nil
 ---@return string project_id
 local function project_id_with_root(root)
-	local result = M.run_git("git rev-list --max-parents=0 HEAD")
+	local result = M.run_git("git rev-list -n 1 --max-parents=0 HEAD")
 	if result and result[1] and result[1] ~= "" then
 		return result[1]
 	end
