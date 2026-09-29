@@ -1,0 +1,18 @@
+name: CI
+
+# The jobs live in the shared workflow in noe.trevino/ci, so every plugin gets
+# the same CI.
+
+on:
+  push:
+    branches: [main, nightly]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: noe.trevino/ci/.forgejo/workflows/nvim-plugins-ci.yml@86280eabf2257bf67f53847252b98049d0319901
+    secrets: inherit
+    with:
+      plugin: haunt.nvim
+      repo: noe.trevino/haunt.nvim
