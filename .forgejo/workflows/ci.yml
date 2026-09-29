@@ -1,7 +1,7 @@
 name: CI
 
-# Forgejo reads this folder and ignores .github/workflows. The jobs live in
-# the shared workflow, so every plugin gets the same CI.
+# The jobs live in the shared workflow in noe.trevino/ci, so every plugin gets
+# the same CI.
 
 on:
   push:
