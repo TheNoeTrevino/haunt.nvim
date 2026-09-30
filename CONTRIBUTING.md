@@ -1,5 +1,8 @@
 # Contributing
 
+> Development happens at https://git.thenoetrevino.com/noe.trevino/haunt.nvim.
+> GitHub is a read-only mirror. Please open issues and pull requests there.
+
 First of all, thank you for considering contributing to this project!
 
 ## Git Workflow
