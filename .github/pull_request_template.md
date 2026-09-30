@@ -1,10 +1,3 @@
-## Checklist
-- [ ] Read `CONTRIBUTING.md`
-- [ ] Ran tests (`./scripts/test`) locally
-- [ ] Formatted with Stylua
-- [ ] Added tests if necessary
-- [ ] Updated documentation(inline to source code) if applicable
-- [ ] Updated `README.md` if applicable
-
-## Summary
-<!-- What does this PR change and/or fix? -->
+> **This repository is a read-only mirror.** Pull requests opened here are not reviewed and cannot be merged.
+>
+> Development happens at https://git.thenoetrevino.com/noe.trevino/haunt.nvim. Sign in there with your GitHub account (one click, no approval), fork the repo, and open your pull request against `main`. Thank you!

@@ -1,5 +1,7 @@
+# This GitHub repository is a read-only mirror. Issues live on the project's
+# own server, so the only choice here is a link to it.
 blank_issues_enabled: false
 contact_links:
-  - name: Ask a question
-    url: https://github.com/TheNoeTrevino/haunt.nvim/discussions
-    about: Use Github discussions instead
+  - name: Open an issue on git.thenoetrevino.com
+    url: https://git.thenoetrevino.com/noe.trevino/haunt.nvim/issues/new/choose
+    about: This repo is a read-only mirror. Sign in there with your GitHub account, one click, no approval, and file the issue where it will be seen.

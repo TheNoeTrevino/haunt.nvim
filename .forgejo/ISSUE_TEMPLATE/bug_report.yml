@@ -6,10 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Before** reporting an issue, make sure to read the [documentation](https://github.com/TheNoeTrevino/haunt.nvim)
-        and search [existing issues](https://github.com/TheNoeTrevino/haunt.nvim/issues).
+        **Before** reporting an issue, make sure to read the [documentation](https://git.thenoetrevino.com/noe.trevino/haunt.nvim)
+        and search [existing issues](https://git.thenoetrevino.com/noe.trevino/haunt.nvim/issues).
 
-        Usage questions such as ***"How do I...?"*** belong in [Discussions](https://github.com/TheNoeTrevino/haunt.nvim/discussions) and will be closed.
+        Usage questions such as ***"How do I...?"*** belong in [a plain issue](https://git.thenoetrevino.com/noe.trevino/haunt.nvim/issues/new) and will be closed.
   - type: checkboxes
     attributes:
       label: Did you check docs and existing issues?
