@@ -39,6 +39,7 @@ Annotate your codebase with ghost text. Search through the history that _you_ ch
 Keep your mental overhead to a minimum and never repeatedly rummage through your codebase again.
 
 <!--toc:start-->
+
 - [`haunt.nvim` 👻](#hauntnvim-👻)
   - [Showcase](#showcase)
   - [Features](#features)
@@ -55,15 +56,15 @@ Keep your mental overhead to a minimum and never repeatedly rummage through your
   - [Why?](#why)
   - [Acknowledgements](#acknowledgements)
   - [Similar Plugins](#similar-plugins)
-<!--toc:end-->
 
+<!--toc:end-->
 
 ## Features
 
 - Virtual text annotations
-  * Keep your personal notes in your code without modifying the actual files
+  - Keep your personal notes in your code without modifying the actual files
 - Git integration
-  * annotations are tied to a git branch. Keep different notes for different branches
+  - annotations are tied to a git branch. Keep different notes for different branches
 - Jump around using your hauntings
 - Search through your bookmarks with `snacks.nvim` or `telescope.nvim`
 - Use `sidekick.nvim` to send your annotations to your favorite cli tool. Have a robot purge you of your hauntings!
@@ -81,9 +82,9 @@ Keep your mental overhead to a minimum and never repeatedly rummage through your
 
 ## Installation
 
-``` lua
+```lua
 return {
-  "TheNoeTrevino/haunt.nvim",
+  "https://git.thenoetrevino.com/noe.trevino/haunt.nvim",
   -- default config: change to your liking, or remove it to use defaults
   ---@class HauntConfig
   opts = {
@@ -146,7 +147,7 @@ return {
       haunt_picker.show()
     end, { desc = "Show Picker" })
 
-    -- quickfix 
+    -- quickfix
     map("n", prefix .. "q", function()
        haunt.to_quickfix()
     end, { desc = "Send Hauntings to QF Lix (buffer)" })
@@ -186,13 +187,13 @@ Set `virt_text_pos = "above"` to display annotations in a bordered box above the
 
 ### API
 
-By default, haunt.nvim provides ***no default keymaps***. You will have to set them up yourself. See the installation section for an example.
+By default, haunt.nvim provides _**no default keymaps**_. You will have to set them up yourself. See the installation section for an example.
 The installation section includes some recommended keymaps to get you started.
 You can also just use the user commands, which we will talk about later.
 
 Here are the exposed API functions you should know about:
 
-``` lua
+```lua
 local haunt = require("haunt.api")
 local haunt_picker = require("haunt.picker")
 local haunt_sk = require("haunt.sidekick")
@@ -247,7 +248,7 @@ haunt.change_data_dir(nil) -- reset to default
 
 ### User Commands
 
-Or you can use the user commands: 
+Or you can use the user commands:
 
 `HauntAnnotate`
 
@@ -269,7 +270,7 @@ Or you can use the user commands:
 
 `HauntChangeDataDir [path]`
 
-`HauntMigrate` 
+`HauntMigrate`
 
 `HauntReload`
 
@@ -278,7 +279,7 @@ Take a look at `:h haunt-commands` for more details on each command, and example
 If you wanna script something with this plugin, take a look at `:h haunt`.
 I tried my best to expose as many useful functions as possible.
 
-## Integrations 
+## Integrations
 
 ### Picker (`snacks.nvim` / `telescope.nvim` / `fzf-lua`)
 
@@ -291,7 +292,7 @@ By default, haunt.nvim uses `"auto"` mode which tries Snacks first, then Telesco
 
 You can explicitly choose your picker:
 
-``` lua
+```lua
 return {
   "TheNoeTrevino/haunt.nvim",
   opts = {
@@ -313,9 +314,11 @@ return {
 ```
 
 **Picker actions:**
+
 - `<CR>`: Jump to the selected bookmark
 - `d` (normal mode): Delete the selected bookmark
 - `a` (normal mode): Edit the bookmark's annotation
+
 </details>
 
 ### `sidekick.nvim`
@@ -327,7 +330,7 @@ Send the position of your annotations to your favorite CLI tool through sidekick
 
 Add this to your sidekick configuration:
 
-``` lua
+```lua
 
 local haunt_sk = require("haunt.sidekick")
 return {
@@ -361,7 +364,7 @@ Here are some ideas for how to use this for inspiration:
 
 - Store haunt annotation on a NAS and load them across machines (you can use tailscale!!)
 - Share with teammates by committing the bookmark files to git, and pointing everyone to the same `data_dir`
-  * data can be `vim.fn.getcwd() .. "/.haunt/"`
+  - data can be `vim.fn.getcwd() .. "/.haunt/"`
 
 For more details, see the help docs:
 
@@ -377,7 +380,7 @@ Have fun!
 
 Use `change_data_dir` to scope bookmarks per project/directory:
 
-``` lua
+```lua
 vim.api.nvim_create_autocmd("DirChanged", {
   callback = function()
     local project_bookmarks = vim.fn.getcwd() .. "/.bookmarks/"
@@ -389,11 +392,12 @@ vim.api.nvim_create_autocmd("DirChanged", {
 ## Why?
 
 I have tried all the bookmarking plugins out there, and none of them really fit my workflow.
-The specific issues I kept having were: 
+The specific issues I kept having were:
+
 - Why is there a mark/bookmark here? Did I do that on purpose? Oh whatever...
 - I wish I could fuzzy search the _semantic meaning of the mark_ that I would have in my head.
 - I want to send the marks, with my annotations, to my AI assistant to help me with my daily workflow.
-- On massive codebases, I wish these marks had a 'why' to them. 
+- On massive codebases, I wish these marks had a 'why' to them.
 
 The closest alternative I found was vim-bookmarks, but it is semi-broken, and the last commit was 5 years ago.
 Time for modern alternative!
@@ -405,7 +409,7 @@ I hope this helps others with the same issues.
 - folke for snacks.nvim and sidekick.nvim, the API was extremely easy to work with
 - `nvim-telescope` team for telescope.nvim
 - `mini.nvim` for the `mini.docs` template
-  
+
 ## Similar Plugins
 
 - [harpoon.nvim](https://github.com/ThePrimeagen/harpoon)
