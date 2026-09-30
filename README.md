@@ -1,5 +1,8 @@
 # `haunt.nvim` 👻
 
+> Development happens at https://git.thenoetrevino.com/noe.trevino/haunt.nvim.
+> GitHub is a read-only mirror. Please open issues and pull requests there.
+
 ![IMG_0236(1)](https://github.com/user-attachments/assets/de341829-817b-4276-8e72-bb6bf61261b1)
 
 ## Showcase
