@@ -40,6 +40,7 @@ end
 ---@param opts? table Options to pass to Telescope picker
 ---@return boolean success True if picker was shown
 function M.show(opts)
+	opts = opts or {}
 	local has_telescope, _ = pcall(require, "telescope")
 	if not has_telescope then
 		return false
@@ -51,6 +52,7 @@ function M.show(opts)
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 	local entry_display = require("telescope.pickers.entry_display")
+	local telescope_utils = require("telescope.utils")
 
 	-- Try to load nvim-web-devicons for file icons
 	local has_devicons, devicons = pcall(require, "nvim-web-devicons")
@@ -71,32 +73,56 @@ function M.show(opts)
 
 	local items = utils.build_picker_items(bookmarks)
 
-	-- Calculate display widths for alignment
-	local max_filename_width = 0
-	local max_line_width = 0
-	for _, item in ipairs(items) do
-		max_filename_width = math.max(max_filename_width, #item.relpath)
-		max_line_width = math.max(max_line_width, #tostring(item.line))
+	-- Format paths with Telescope so the user's path_display setting applies.
+	-- Cache the result, because some modes (e.g. "smart") return a different
+	-- string on each call, and the column width must match what is drawn
+	local path_cache = {}
+	---@param item PickerItem
+	---@return string
+	local function display_path(item)
+		if not path_cache[item.file] then
+			path_cache[item.file] = (telescope_utils.transform_path(opts, item.file))
+		end
+		return path_cache[item.file]
 	end
 
 	-- Icon width (icon + space)
 	local icon_width = has_devicons and 2 or 0
 
-	local displayer = entry_display.create({
-		separator = " ",
-		items = {
-			{ width = icon_width },
-			{ width = max_filename_width },
-			{ width = max_line_width + 1 },
-			{ remaining = true },
-		},
-	})
+	-- Create the displayer on first use. Some path_display modes (e.g.
+	-- "truncate") read the open picker window, so paths can only be
+	-- measured once Telescope starts drawing entries
+	local displayer = nil
+	local function get_displayer()
+		if displayer then
+			return displayer
+		end
+
+		-- Calculate display widths for alignment
+		local max_filename_width = 0
+		local max_line_width = 0
+		for _, item in ipairs(items) do
+			max_filename_width = math.max(max_filename_width, vim.fn.strdisplaywidth(display_path(item)))
+			max_line_width = math.max(max_line_width, #tostring(item.line))
+		end
+
+		displayer = entry_display.create({
+			separator = " ",
+			items = {
+				{ width = icon_width },
+				{ width = max_filename_width },
+				{ width = max_line_width + 1 },
+				{ remaining = true },
+			},
+		})
+		return displayer
+	end
 
 	---@param entry {value: PickerItem, ordinal: string, filename: string, lnum: number}
 	---@return string display_string
 	---@return table highlight_positions
 	local make_display = function(entry)
-		local relpath = entry.value.relpath
+		local path = display_path(entry.value)
 		local filename = entry.value.filename
 
 		-- Get file icon and highlight
@@ -112,10 +138,10 @@ function M.show(opts)
 			note_display = " " .. entry.value.note
 		end
 
-		-- Format: [icon] [relpath] :line [note]
-		return displayer({
+		-- Format: [icon] [path] :line [note]
+		return get_displayer()({
 			{ icon, icon_hl },
-			{ relpath, "TelescopeResultsIdentifier" },
+			{ path, "TelescopeResultsIdentifier" },
 			{ ":" .. tostring(entry.value.line), "TelescopeResultsNumber" },
 			{ note_display, "TelescopeResultsComment" },
 		})
@@ -177,7 +203,7 @@ function M.show(opts)
 			end,
 			reopen_picker = function()
 				if picker_module then
-					picker_module.show()
+					picker_module.show(opts)
 				end
 			end,
 		})
@@ -218,7 +244,9 @@ function M.show(opts)
 		return true
 	end
 
-	local picker_opts = vim.tbl_deep_extend("force", {
+	-- Pass user opts as Telescope's opts and ours as defaults, so Telescope
+	-- merges them itself (e.g. running both attach_mappings functions)
+	local defaults = {
 		prompt_title = "Hauntings",
 		finder = finders.new_table({
 			results = items,
@@ -235,9 +263,9 @@ function M.show(opts)
 		sorter = conf.generic_sorter({}),
 		previewer = conf.grep_previewer({}),
 		attach_mappings = attach_mappings,
-	}, opts or {})
+	}
 
-	pickers.new({}, picker_opts):find()
+	pickers.new(opts, defaults):find()
 	return true
 end
 

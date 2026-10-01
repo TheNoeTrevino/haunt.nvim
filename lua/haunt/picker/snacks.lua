@@ -69,7 +69,8 @@ end
 ---@private
 ---@param picker snacks.Picker The Snacks picker instance
 ---@param item PickerItem The selected bookmark item
-local function handle_edit_annotation(picker, item)
+---@param opts? table The opts the picker was opened with, reused when it reopens
+local function handle_edit_annotation(picker, item, opts)
 	utils.handle_edit_annotation({
 		item = item,
 		close_picker = function()
@@ -77,7 +78,7 @@ local function handle_edit_annotation(picker, item)
 		end,
 		reopen_picker = function()
 			if picker_module then
-				picker_module.show()
+				picker_module.show(opts)
 			end
 		end,
 	})
@@ -132,30 +133,14 @@ function M.show(opts)
 		finder = function()
 			return utils.build_picker_items(api.get_bookmarks())
 		end,
-		-- Custom format function for bookmark items
-		format = function(item, _)
-			local result = {}
-
-			-- Use cached path values
-			local filename = item.filename
-			local dir = vim.fn.fnamemodify(item.relpath, ":h")
-			if dir == "." then
-				dir = ""
-			else
-				dir = dir .. "/"
-			end
-
-			-- Format: filename (in directory) :line note
-			result[#result + 1] = { filename, "SnacksPickerFile" }
-			if dir ~= "" then
-				result[#result + 1] = { " " .. dir, "SnacksPickerDir" }
-			end
-			result[#result + 1] = { ":", "SnacksPickerIcon" }
-			result[#result + 1] = { tostring(item.pos[1]), "SnacksPickerMatch" }
+		-- Format the path with Snacks' own file formatter, so the user's
+		-- formatters.file settings, icons, and path truncation apply
+		format = function(item, picker)
+			local result = require("snacks.picker.format").filename(item, picker)
 
 			-- Add annotation if present
 			if item.note and item.note ~= "" then
-				result[#result + 1] = { " " .. item.note, "SnacksPickerComment" }
+				result[#result + 1] = { item.note, "SnacksPickerComment" }
 			end
 
 			return result
@@ -169,7 +154,9 @@ function M.show(opts)
 		end,
 		actions = {
 			delete = handle_delete,
-			edit_annotation = handle_edit_annotation,
+			edit_annotation = function(picker, item)
+				handle_edit_annotation(picker, item, opts)
+			end,
 		},
 		win = {
 			input = {

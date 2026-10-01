@@ -109,7 +109,7 @@ describe("haunt.picker.fzf with mock", function()
 	-- Helper to execute an action
 	local function execute_action(opts, action_name, selected)
 		if opts and opts.actions and opts.actions[action_name] then
-			return opts.actions[action_name](selected)
+			return opts.actions[action_name](selected, opts)
 		end
 	end
 
@@ -240,6 +240,176 @@ describe("haunt.picker.fzf with mock", function()
 			assert.are.equal(false, opts.previewer)
 		end)
 
+		it("does not bind plain letters, so they can be typed in the prompt", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			fzf_picker.show()
+
+			local opts = mock_fzf.fzf_exec_opts
+			assert.is_nil(opts.actions["d"])
+			assert.is_nil(opts.actions["a"])
+		end)
+
+		it("uses the configured fzf_key for actions", function()
+			haunt.setup({
+				picker_keys = {
+					delete = { key = "d", mode = { "n" }, fzf_key = "alt-d" },
+					edit_annotation = { key = "a", mode = { "n" }, fzf_key = "alt-a" },
+				},
+			})
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			fzf_picker.show()
+
+			local opts = mock_fzf.fzf_exec_opts
+			assert.is_not_nil(opts.actions["alt-d"])
+			assert.is_not_nil(opts.actions["alt-a"])
+			assert.is_nil(opts.actions["ctrl-x"])
+		end)
+
+		it("uses a custom key when it is already an fzf key", function()
+			haunt.setup({
+				picker_keys = {
+					delete = { key = "ctrl-d" },
+					edit_annotation = { key = "alt-e" },
+				},
+			})
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+
+			fzf_picker.show()
+
+			local opts = mock_fzf.fzf_exec_opts
+			assert.is_not_nil(opts.actions["ctrl-d"])
+			assert.is_not_nil(opts.actions["alt-e"])
+			assert.is_nil(opts.actions["ctrl-x"])
+			assert.is_nil(opts.actions["ctrl-e"])
+		end)
+
+		it("passes absolute paths to fzf-lua so it can make them relative to its cwd", function()
+			local abs_file = vim.fn.getcwd() .. "/haunt_fzf_abs_test.lua"
+			local abs_buf = vim.api.nvim_create_buf(false, false)
+			vim.api.nvim_buf_set_name(abs_buf, abs_file)
+			vim.api.nvim_buf_set_lines(abs_buf, 0, -1, false, { "one" })
+			vim.api.nvim_set_current_buf(abs_buf)
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+			local formatted = {}
+			package.loaded["fzf-lua.config"] = {
+				normalize_opts = function(opts)
+					return opts
+				end,
+			}
+			package.loaded["fzf-lua.make_entry"] = {
+				preprocess = function() end,
+				file = function(x)
+					table.insert(formatted, x)
+					return x
+				end,
+			}
+
+			fzf_picker.show({ cwd = "/some/other/dir" })
+			package.loaded["fzf-lua.config"] = nil
+			package.loaded["fzf-lua.make_entry"] = nil
+			helpers.cleanup_buffer(abs_buf, abs_file)
+
+			assert.are.equal(1, formatted[1]:find(abs_file .. ":", 1, true))
+		end)
+
+		it("notifies instead of opening an empty picker when fzf-lua filters every entry", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+			package.loaded["fzf-lua.config"] = {
+				normalize_opts = function(opts)
+					return opts
+				end,
+			}
+			package.loaded["fzf-lua.make_entry"] = {
+				preprocess = function() end,
+				file = function()
+					return nil
+				end,
+			}
+			notifications = {}
+
+			fzf_picker.show()
+			package.loaded["fzf-lua.config"] = nil
+			package.loaded["fzf-lua.make_entry"] = nil
+
+			assert.is_false(mock_fzf.fzf_exec_called)
+			assert.are.equal(1, #notifications)
+			assert.truthy(notifications[1].msg:find("No bookmarks to show", 1, true))
+		end)
+
+		it("formats entries with fzf-lua's file formatter and resolved opts", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+			local normalized = nil
+			package.loaded["fzf-lua.config"] = {
+				normalize_opts = function(opts)
+					normalized = vim.tbl_extend("force", opts, { formatter = "from-user-globals" })
+					return normalized
+				end,
+			}
+			package.loaded["fzf-lua.make_entry"] = {
+				preprocess = function(opts)
+					return opts
+				end,
+				file = function(x, opts)
+					return opts.formatter .. "|" .. x
+				end,
+			}
+
+			fzf_picker.show({ prompt = "P> " })
+			package.loaded["fzf-lua.config"] = nil
+			package.loaded["fzf-lua.make_entry"] = nil
+
+			assert.are.equal("P> ", normalized.prompt)
+			assert.are.equal(normalized, mock_fzf.fzf_exec_opts)
+			assert.are.equal(1, mock_fzf.fzf_exec_items[1]:find("from-user-globals|", 1, true))
+			assert.truthy(mock_fzf.fzf_exec_items[1]:find("Test", 1, true))
+		end)
+
+		it("shows paths relative to the cwd, not absolute", function()
+			local cwd = vim.fn.getcwd()
+			local rel_file = "haunt_fzf_rel_test.lua"
+			local rel_buf = vim.api.nvim_create_buf(false, false)
+			vim.api.nvim_buf_set_name(rel_buf, cwd .. "/" .. rel_file)
+			vim.api.nvim_buf_set_lines(rel_buf, 0, -1, false, { "one" })
+			vim.api.nvim_set_current_buf(rel_buf)
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Relative")
+
+			fzf_picker.show()
+
+			local label = mock_fzf.fzf_exec_items[1]
+			helpers.cleanup_buffer(rel_buf, cwd .. "/" .. rel_file)
+			assert.are.equal(1, label:find(rel_file, 1, true))
+		end)
+
+		it("resolves an entry that fzf-lua reformatted", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test")
+			local bm = api.get_bookmarks()[1]
+			local resolved_with = nil
+			package.loaded["fzf-lua.path"] = {
+				entry_to_file = function(entry, opts)
+					resolved_with = { entry = entry, opts = opts }
+					return { path = bm.file, line = bm.line }
+				end,
+			}
+
+			fzf_picker.show()
+			local ok = pcall(execute_action, mock_fzf.fzf_exec_opts, "ctrl-x", { "  s/f/reformatted.lua:1:0 Test" })
+			package.loaded["fzf-lua.path"] = nil
+
+			assert.is_true(ok)
+			assert.are.equal("  s/f/reformatted.lua:1:0 Test", resolved_with.entry)
+			assert.are.equal(0, #api.get_bookmarks())
+		end)
+
 		it("configures default action for selection", function()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.annotate("Test")
@@ -259,8 +429,8 @@ describe("haunt.picker.fzf with mock", function()
 
 			local opts = mock_fzf.fzf_exec_opts
 			assert.is_not_nil(opts.actions)
-			-- Default delete key is "d"
-			assert.is_not_nil(opts.actions["d"])
+			-- Default fzf delete key is "ctrl-x"
+			assert.is_not_nil(opts.actions["ctrl-x"])
 		end)
 
 		it("configures edit_annotation action with configured key", function()
@@ -271,8 +441,8 @@ describe("haunt.picker.fzf with mock", function()
 
 			local opts = mock_fzf.fzf_exec_opts
 			assert.is_not_nil(opts.actions)
-			-- Default edit_annotation key is "a"
-			assert.is_not_nil(opts.actions["a"])
+			-- Default fzf edit_annotation key is "ctrl-e"
+			assert.is_not_nil(opts.actions["ctrl-e"])
 		end)
 	end)
 
@@ -348,7 +518,7 @@ describe("haunt.picker.fzf with mock", function()
 
 			assert.are.equal(3, #api.get_bookmarks())
 
-			execute_action(mock_fzf.fzf_exec_opts, "d", { item_to_delete })
+			execute_action(mock_fzf.fzf_exec_opts, "ctrl-x", { item_to_delete })
 
 			assert.are.equal(2, #api.get_bookmarks())
 		end)
@@ -362,7 +532,7 @@ describe("haunt.picker.fzf with mock", function()
 			local last_item = mock_fzf.fzf_exec_items[1]
 			notifications = {} -- Clear previous notifications
 
-			execute_action(mock_fzf.fzf_exec_opts, "d", { last_item })
+			execute_action(mock_fzf.fzf_exec_opts, "ctrl-x", { last_item })
 
 			local has_notification = false
 			for _, notif in ipairs(notifications) do
@@ -376,7 +546,7 @@ describe("haunt.picker.fzf with mock", function()
 
 		it("handles empty selection gracefully", function()
 			fzf_picker.show()
-			local ok = pcall(execute_action, mock_fzf.fzf_exec_opts, "d", {})
+			local ok = pcall(execute_action, mock_fzf.fzf_exec_opts, "ctrl-x", {})
 			assert.is_true(ok)
 			assert.are.equal(3, #api.get_bookmarks())
 		end)
@@ -411,7 +581,7 @@ describe("haunt.picker.fzf with mock", function()
 
 			fzf_picker.show()
 			local item = mock_fzf.fzf_exec_items[1]
-			execute_action(mock_fzf.fzf_exec_opts, "a", { item })
+			execute_action(mock_fzf.fzf_exec_opts, "ctrl-e", { item })
 
 			assert.are.equal("Original note", prompted_default)
 		end)
@@ -426,15 +596,33 @@ describe("haunt.picker.fzf with mock", function()
 
 			fzf_picker.show()
 			local item = mock_fzf.fzf_exec_items[1]
-			execute_action(mock_fzf.fzf_exec_opts, "a", { item })
+			execute_action(mock_fzf.fzf_exec_opts, "ctrl-e", { item })
 
 			local bookmarks = api.get_bookmarks()
 			assert.are.equal("Updated note", bookmarks[1].note)
 		end)
 
+		it("reopens with the same opts after editing", function()
+			vim.fn.input = function()
+				return "Updated note"
+			end
+			local reopened_with = nil
+			fzf_picker.set_picker_module({
+				show = function(o)
+					reopened_with = o
+				end,
+			})
+
+			fzf_picker.show({ prompt = "Custom> " })
+			local item = mock_fzf.fzf_exec_items[1]
+			execute_action(mock_fzf.fzf_exec_opts, "ctrl-e", { item })
+
+			assert.are.equal("Custom> ", reopened_with.prompt)
+		end)
+
 		it("handles empty selection gracefully", function()
 			fzf_picker.show()
-			local ok = pcall(execute_action, mock_fzf.fzf_exec_opts, "a", {})
+			local ok = pcall(execute_action, mock_fzf.fzf_exec_opts, "ctrl-e", {})
 			assert.is_true(ok)
 		end)
 	end)
