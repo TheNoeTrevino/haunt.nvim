@@ -106,8 +106,8 @@ return {
       fzf = {},
     },
     picker_keys = { -- picker agnostic, we got you covered
-      delete = { key = "d", mode = { "n" } },
-      edit_annotation = { key = "a", mode = { "n" } },
+      delete = { key = "d", mode = { "n" }, fzf_key = "ctrl-x" },
+      edit_annotation = { key = "a", mode = { "n" }, fzf_key = "ctrl-e" },
     },
   },
   -- recommended keymaps, with a helpful prefix alias
@@ -311,15 +311,19 @@ return {
         layout_strategy = "vertical",
       },
     },
-    -- Customize picker keybindings (works for both Snacks and Telescope)
+    -- Customize picker keybindings. Snacks and Telescope use `key` and `mode`.
+    -- fzf has no normal mode, so fzf-lua uses `fzf_key` instead
+    -- (or `key`, when `key` is already an fzf key such as "ctrl-d").
     picker_keys = {
       delete = {
         key = "d",
         mode = { "n" },
+        fzf_key = "ctrl-x",
       },
       edit_annotation = {
         key = "a",
         mode = { "n" },
+        fzf_key = "ctrl-e",
       },
     },
   },
@@ -329,9 +333,11 @@ return {
 **Picker actions:**
 
 - `<CR>`: Jump to the selected bookmark
-- `d` (normal mode): Delete the selected bookmark
-- `a` (normal mode): Edit the bookmark's annotation
+- `d` (normal mode): Delete the selected bookmark (`ctrl-x` in fzf-lua)
+- `a` (normal mode): Edit the bookmark's annotation (`ctrl-e` in fzf-lua)
 
+Each picker shows paths with its own path settings, such as Telescope's `path_display`,
+Snacks' `formatters.file`, or the `formatter` and `path_shorten` in fzf-lua's `defaults` setup table.
 </details>
 
 ### `sidekick.nvim`

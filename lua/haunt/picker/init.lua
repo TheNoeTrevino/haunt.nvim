@@ -17,8 +17,8 @@
 ---
 --- Picker actions: ~
 ---   - `<CR>`: Jump to the selected bookmark
----   - `d` (normal mode): Delete the selected bookmark
----   - `a` (normal mode): Edit the bookmark's annotation
+---   - `d` (normal mode): Delete the selected bookmark (`ctrl-x` in fzf-lua)
+---   - `a` (normal mode): Edit the bookmark's annotation (`ctrl-e` in fzf-lua)
 ---
 --- The keybindings can be customized via |HauntConfig|.picker_keys.
 
