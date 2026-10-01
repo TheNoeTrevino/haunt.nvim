@@ -286,4 +286,61 @@ describe("haunt.picker", function()
 			assert.are.equal("Custom Title", mock_snacks.picker_config.title)
 		end)
 	end)
+
+	describe("picker_opts config option", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Test bookmark")
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("defaults to empty opts for every picker", function()
+			assert.are.same({ snacks = {}, telescope = {}, fzf = {} }, haunt.get_config().picker_opts)
+		end)
+
+		it("passes the configured opts when show() gets no opts", function()
+			package.loaded["snacks"] = mock_snacks
+			haunt.setup({ picker = "snacks", picker_opts = { snacks = { title = "From Config" } } })
+			picker = require("haunt.picker")
+
+			picker.show()
+
+			assert.are.equal("From Config", mock_snacks.picker_config.title)
+		end)
+
+		it("lets show() opts override the configured opts", function()
+			package.loaded["snacks"] = mock_snacks
+			haunt.setup({
+				picker = "snacks",
+				picker_opts = { snacks = { title = "From Config", layout = "ivy" } },
+			})
+			picker = require("haunt.picker")
+
+			picker.show({ title = "From Call" })
+
+			assert.are.equal("From Call", mock_snacks.picker_config.title)
+			assert.are.equal("ivy", mock_snacks.picker_config.layout)
+		end)
+
+		it("gives each picker only its own opts in auto mode", function()
+			mock_fzf = create_mock_fzf()
+			package.loaded["fzf-lua"] = mock_fzf
+			haunt.setup({
+				picker = "auto",
+				picker_opts = { snacks = { snacks_only = true }, fzf = { fzf_only = true } },
+			})
+			picker = require("haunt.picker")
+
+			picker.show()
+
+			assert.is_true(mock_fzf.fzf_exec_opts.fzf_only)
+			assert.is_nil(mock_fzf.fzf_exec_opts.snacks_only)
+		end)
+	end)
 end)

@@ -11,7 +11,7 @@ on:
 
 jobs:
   ci:
-    uses: noe.trevino/ci/.forgejo/workflows/nvim-plugins-ci.yml@86280eabf2257bf67f53847252b98049d0319901
+    uses: noe.trevino/ci/.forgejo/workflows/nvim-plugins-ci.yml@main
     secrets: inherit
     with:
       plugin: haunt.nvim

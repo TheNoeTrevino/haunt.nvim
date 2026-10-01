@@ -8,10 +8,13 @@
 ---
 --- Picker actions: ~
 ---   - `<CR>`: Jump to the selected bookmark
----   - `d` (normal mode): Delete the selected bookmark
----   - `a` (normal mode): Edit the bookmark's annotation
+---   - `ctrl-x`: Delete the selected bookmark
+---   - `ctrl-e`: Edit the bookmark's annotation
 ---
---- The keybindings can be customized via |HauntConfig|.picker_keys.
+--- fzf has no normal mode, so a plain letter key would block typing that
+--- letter in the prompt. fzf-lua uses the `fzf_key` field of each
+--- |HauntConfig|.picker_keys entry in place of `key` and `mode`, unless
+--- `key` is already an fzf key such as "ctrl-d".
 
 ---@type PickerModule
 ---@diagnostic disable-next-line: missing-fields
@@ -34,6 +37,22 @@ end
 function M.is_available()
 	local ok, _ = pcall(require, "fzf-lua")
 	return ok
+end
+
+---@private
+--- Pick the fzf key for a picker_keys entry. A `key` that is already an fzf
+--- key (e.g. "ctrl-d", "alt-a", "f2") still works, as it did before
+--- `fzf_key` existed. A plain letter would block typing it, so it falls
+--- back to `fzf_key`
+---@param key_cfg table The picker_keys entry
+---@param default string Key to use when neither field gives a usable key
+---@return string
+local function fzf_key_for(key_cfg, default)
+	local key = key_cfg.key
+	if key and (key:match("^%a+%-.") or key:match("^f%d+$")) then
+		return key
+	end
+	return key_cfg.fzf_key or default
 end
 
 ---@private
@@ -64,7 +83,8 @@ end
 
 ---@private
 ---@param item PickerItem The selected bookmark item
-local function handle_edit_annotation(item)
+---@param opts? table The opts the picker was opened with, reused when it reopens
+local function handle_edit_annotation(item, opts)
 	utils.handle_edit_annotation({
 		item = item,
 		close_picker = function()
@@ -72,7 +92,7 @@ local function handle_edit_annotation(item)
 		end,
 		reopen_picker = function()
 			if picker_module then
-				picker_module.show()
+				picker_module.show(opts)
 			end
 		end,
 	})
@@ -101,29 +121,47 @@ function M.show(opts)
 
 	local items = utils.build_picker_items(bookmarks)
 
-	-- Build display list and lookup table
-	local display_list = {}
+	-- Maps each displayed entry back to its bookmark, filled in below
 	local lookup = {}
 
-	for _, item in ipairs(items) do
-		local label = string.format("%s:%d:%d", item.file, item.line, item.pos[2] or 0)
-		if item.note and item.note ~= "" then
-			label = label .. " " .. item.note
+	--- Find the bookmark for a selected entry. fzf strips colors and icons
+	--- can differ from the entry we built, so fall back to parsing the entry
+	--- the way fzf-lua does
+	---@param selected? string[] Selected entries
+	---@param fzf_opts? table Resolved fzf-lua opts passed to the action
+	---@return PickerItem|nil
+	local function selected_item(selected, fzf_opts)
+		local entry = selected and selected[1]
+		if not entry then
+			return nil
 		end
-		table.insert(display_list, label)
-		lookup[label] = item
+		if lookup[entry] then
+			return lookup[entry]
+		end
+
+		local has_path, fzf_path = pcall(require, "fzf-lua.path")
+		if not has_path then
+			return nil
+		end
+		local file = fzf_path.entry_to_file(entry, fzf_opts)
+		if not file or not file.path then
+			return nil
+		end
+		local abs = vim.fn.fnamemodify(file.path, ":p")
+		for _, item in ipairs(items) do
+			if vim.fn.fnamemodify(item.file, ":p") == abs and item.line == file.line then
+				return item
+			end
+		end
+		return nil
 	end
 
 	-- Build actions table with configurable keybindings
 	local actions = {}
 
 	-- Default action: jump to bookmark
-	actions["default"] = function(selected)
-		if not selected or #selected == 0 then
-			return
-		end
-		local entry = selected[1]
-		local item = lookup[entry]
+	actions["default"] = function(selected, fzf_opts)
+		local item = selected_item(selected, fzf_opts)
 		if item then
 			utils.jump_to_bookmark(item)
 		end
@@ -131,13 +169,9 @@ function M.show(opts)
 
 	-- Delete action
 	if picker_keys.delete then
-		local key = picker_keys.delete.key or "d"
-		actions[key] = function(selected)
-			if not selected or #selected == 0 then
-				return
-			end
-			local entry = selected[1]
-			local item = lookup[entry]
+		local key = fzf_key_for(picker_keys.delete, "ctrl-x")
+		actions[key] = function(selected, fzf_opts)
+			local item = selected_item(selected, fzf_opts)
 			if item then
 				handle_delete(item, function()
 					M.show(opts)
@@ -148,15 +182,11 @@ function M.show(opts)
 
 	-- Edit annotation action
 	if picker_keys.edit_annotation then
-		local key = picker_keys.edit_annotation.key or "a"
-		actions[key] = function(selected)
-			if not selected or #selected == 0 then
-				return
-			end
-			local entry = selected[1]
-			local item = lookup[entry]
+		local key = fzf_key_for(picker_keys.edit_annotation, "ctrl-e")
+		actions[key] = function(selected, fzf_opts)
+			local item = selected_item(selected, fzf_opts)
 			if item then
-				handle_edit_annotation(item)
+				handle_edit_annotation(item, opts)
 			end
 		end
 	end
@@ -167,6 +197,47 @@ function M.show(opts)
 		actions = actions,
 	}
 	fzf_opts = vim.tbl_deep_extend("force", fzf_opts, opts or {})
+
+	-- Resolve the opts with the user's fzf-lua globals up front, like the
+	-- built-in fzf-lua providers do, so entries can be formatted with the
+	-- user's path settings (formatter, path_shorten, file_icons)
+	local has_config, fzf_config = pcall(require, "fzf-lua.config")
+	local has_make_entry, make_entry = pcall(require, "fzf-lua.make_entry")
+	local format_file = nil
+	if has_config and has_make_entry then
+		fzf_opts = fzf_config.normalize_opts(fzf_opts, {})
+		if not fzf_opts then
+			return true
+		end
+		make_entry.preprocess(fzf_opts)
+		format_file = make_entry.file
+	end
+
+	-- Build display list. fzf-lua gets absolute paths and makes them
+	-- relative to its own cwd, so previews still work when opts.cwd is set.
+	-- Without fzf-lua's formatter, show paths relative to Neovim's cwd
+	local display_list = {}
+	for _, item in ipairs(items) do
+		local label
+		if format_file then
+			label = format_file(string.format("%s:%d:%d", item.file, item.line, item.pos[2] or 0), fzf_opts)
+		else
+			label = string.format("%s:%d:%d", item.relpath, item.line, item.pos[2] or 0)
+		end
+		if label then
+			if item.note and item.note ~= "" then
+				label = label .. " " .. item.note
+			end
+			table.insert(display_list, label)
+			lookup[label] = item
+		end
+	end
+
+	-- fzf-lua drops entries that match its file_ignore_patterns or cwd_only
+	if #display_list == 0 then
+		vim.notify("haunt.nvim: No bookmarks to show with the current fzf-lua filters", vim.log.levels.INFO)
+		return true
+	end
 
 	fzf.fzf_exec(display_list, fzf_opts)
 	return true
