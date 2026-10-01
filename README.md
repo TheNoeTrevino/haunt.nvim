@@ -100,6 +100,11 @@ return {
     data_dir = nil,
     per_branch_bookmarks = true,
     picker = "auto", -- "auto", "snacks", "telescope", or "fzf"
+    picker_opts = { -- default opts for each picker, also used by :HauntList
+      snacks = {},
+      telescope = {},
+      fzf = {},
+    },
     picker_keys = { -- picker agnostic, we got you covered
       delete = { key = "d", mode = { "n" } },
       edit_annotation = { key = "a", mode = { "n" } },
@@ -298,6 +303,14 @@ return {
   opts = {
     -- Choose your picker: "auto", "snacks", "telescope", or "fzf"
     picker = "auto",
+    -- Default options for each picker. These also apply to :HauntList.
+    -- Options passed to require("haunt.picker").show(opts) override these.
+    picker_opts = {
+      telescope = {
+        path_display = { "smart" },
+        layout_strategy = "vertical",
+      },
+    },
     -- Customize picker keybindings (works for both Snacks and Telescope)
     picker_keys = {
       delete = {

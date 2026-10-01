@@ -62,17 +62,29 @@ local fzf = lazy_picker("fzf")
 local fallback = lazy_picker("fallback")
 
 ---@private
+--- Merge the configured |HauntConfig|.picker_opts for a picker with the call opts.
+--- Call opts win over configured opts.
+---@param name "snacks"|"telescope"|"fzf" Picker name
+---@param opts? table Options passed to show()
+---@return table opts
+local function resolve_opts(name, opts)
+	---@cast haunt -nil
+	local configured = (haunt.get_config().picker_opts or {})[name] or {}
+	return vim.tbl_deep_extend("force", configured, opts or {})
+end
+
+---@private
 ---@param opts? table Options passed to the underlying picker
 local function handle_auto_picker(opts)
-	if snacks.show(opts) then
+	if snacks.show(resolve_opts("snacks", opts)) then
 		return
 	end
 
-	if telescope.show(opts) then
+	if telescope.show(resolve_opts("telescope", opts)) then
 		return
 	end
 
-	if fzf.show(opts) then
+	if fzf.show(resolve_opts("fzf", opts)) then
 		return
 	end
 
@@ -113,21 +125,21 @@ function M.show(opts)
 	local picker_type = haunt.get_config().picker or "auto"
 
 	if picker_type == "snacks" then
-		if not snacks.show(opts) then
+		if not snacks.show(resolve_opts("snacks", opts)) then
 			vim.notify("haunt.nvim: Snacks.nvim is not available", vim.log.levels.WARN)
 		end
 		return
 	end
 
 	if picker_type == "telescope" then
-		if not telescope.show(opts) then
+		if not telescope.show(resolve_opts("telescope", opts)) then
 			vim.notify("haunt.nvim: Telescope.nvim is not available", vim.log.levels.WARN)
 		end
 		return
 	end
 
 	if picker_type == "fzf" then
-		if not fzf.show(opts) then
+		if not fzf.show(resolve_opts("fzf", opts)) then
 			vim.notify("haunt.nvim: fzf-lua is not available", vim.log.levels.WARN)
 		end
 		return

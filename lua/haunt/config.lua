@@ -34,6 +34,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field above_border? string|string[]|(string|string[])[] Border style for the "above" box. Preset strings: "rounded" (default), "single", "double", "none". Also accepts an array of characters (clockwise from top-left); any length that divides 8 is cycled. Each element can be a string or {char, hl_group}.
 ---@field data_dir? string|nil Custom data directory path (default: vim.fn.stdpath("data") .. "/haunt/")
 ---@field picker? "snacks"|"telescope"|"fzf"|"auto" Which picker to use: "snacks", "telescope", "fzf", or "auto" (default: "auto"). "auto" tries Snacks first, then Telescope, then fzf-lua, then vim.ui.select
+---@field picker_opts? {snacks?: table, telescope?: table, fzf?: table} Default options for each picker, passed to the picker when it opens, including from `:HauntList` (default: {snacks = {}, telescope = {}, fzf = {}}). Options passed to |haunt-picker|.show() override these
 ---@field picker_keys table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}}, edit_annotation = {key = 'a', mode = {'n'}}})
 ---@field per_branch_bookmarks? boolean Whether bookmarks are scoped per git branch (default: true). When false, bookmarks persist across all branches in the same repository.
 --minidoc_replace_start M.DEFAULT = {
@@ -51,6 +52,11 @@ M.DEFAULT = {
 	data_dir = nil,
 	per_branch_bookmarks = true,
 	picker = "auto",
+	picker_opts = {
+		snacks = {},
+		telescope = {},
+		fzf = {},
+	},
 	picker_keys = {
 		delete = { key = "d", mode = { "n" } },
 		edit_annotation = { key = "a", mode = { "n" } },
