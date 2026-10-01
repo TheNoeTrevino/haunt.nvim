@@ -190,6 +190,55 @@ describe("haunt.picker.snacks", function()
 		end)
 	end)
 
+	describe("format function", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("Format note")
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+			package.loaded["snacks.picker.format"] = nil
+		end)
+
+		it("formats the path with the Snacks filename formatter", function()
+			local called_with = nil
+			package.loaded["snacks.picker.format"] = {
+				filename = function(item, picker)
+					called_with = { item = item, picker = picker }
+					return { { "FORMATTED_PATH", "SnacksPickerFile" } }
+				end,
+			}
+			local fake_picker = { opts = {} }
+
+			snacks_picker.show()
+			local items = execute_finder(mock_snacks.picker_config)
+			local result = mock_snacks.picker_config.format(items[1], fake_picker)
+
+			assert.are.equal(fake_picker, called_with.picker)
+			assert.are.equal(items[1], called_with.item)
+			assert.are.equal("FORMATTED_PATH", result[1][1])
+		end)
+
+		it("shows the note after the path", function()
+			package.loaded["snacks.picker.format"] = {
+				filename = function()
+					return { { "FORMATTED_PATH", "SnacksPickerFile" } }
+				end,
+			}
+
+			snacks_picker.show()
+			local items = execute_finder(mock_snacks.picker_config)
+			local result = mock_snacks.picker_config.format(items[1], { opts = {} })
+
+			local last = result[#result]
+			assert.truthy(last[1]:find("Format note", 1, true))
+		end)
+	end)
+
 	describe("finder function", function()
 		local bufnr, test_file
 
@@ -398,6 +447,24 @@ describe("haunt.picker.snacks", function()
 
 			mock_snacks.picker_instance.closed = false
 			execute_action(mock_snacks.picker_config, "edit_annotation", items[1])
+		end)
+
+		it("reopens with the same opts after editing", function()
+			vim.fn.input = function()
+				return "Updated note"
+			end
+			local reopened_with = nil
+			snacks_picker.set_picker_module({
+				show = function(o)
+					reopened_with = o
+				end,
+			})
+
+			snacks_picker.show({ title = "Custom" })
+			local items = execute_finder(mock_snacks.picker_config)
+			execute_action(mock_snacks.picker_config, "edit_annotation", items[1])
+
+			assert.are.equal("Custom", reopened_with.title)
 		end)
 
 		it("handles nil item gracefully", function()
