@@ -13,31 +13,33 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner
-            const repo = context.repo.repo
-            const number = context.issue.number
-            const opener = context.payload.sender.login
+      - name: Assign the maintainer
+        env:
+          NUMBER: ${{ forgejo.event.issue.number || forgejo.event.pull_request.number }}
+          OPENER: ${{ forgejo.event.sender.login }}
+          MAINTAINER: noe.trevino
+        run: |
+          if [ "$OPENER" = "$MAINTAINER" ]; then
+            echo "Skipping auto-assign: opened by $MAINTAINER"
+            exit 0
+          fi
 
-            if (opener === 'TheNoeTrevino') {
-              console.log('Skipping auto-assign: opened by TheNoeTrevino')
-              return
-            }
+          call() {
+            body=$(mktemp)
+            status=$(curl -sS -o "$body" -w '%{http_code}' -X "$1" \
+              "$FORGEJO_API_URL/repos/$FORGEJO_REPOSITORY/$2" \
+              -H "Authorization: token $FORGEJO_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$3")
+            echo "$1 $2 -> $status"
+            cat "$body"; echo
+            [ "$status" -lt 300 ] || exit 1
+          }
 
-            await github.rest.issues.addAssignees({
-              owner,
-              repo,
-              issue_number: number,
-              assignees: ['TheNoeTrevino']
-            })
+          call PATCH "issues/$NUMBER" "{\"assignees\":[\"$MAINTAINER\"]}"
 
-            if (context.eventName === 'pull_request') {
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: number,
-                reviewers: ['TheNoeTrevino']
-              })
-            }
+          case "$FORGEJO_EVENT_NAME" in
+            pull_request*)
+              call POST "pulls/$NUMBER/requested_reviewers" "{\"reviewers\":[\"$MAINTAINER\"]}"
+              ;;
+          esac
