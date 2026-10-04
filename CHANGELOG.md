@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.2](https://git.thenoetrevino.com/noe.trevino/haunt.nvim/compare/v1.3.1...v1.3.2) (2026-10-04)
+
+
+### Performance Improvements
+
+* reduce time-to-interactive for large git repos ([31d0bc7](https://git.thenoetrevino.com/noe.trevino/haunt.nvim/commit/31d0bc7cfe41139533c2c022f5a8ba580701d481))
+* reduce time-to-interactive for large git repos ([0507755](https://git.thenoetrevino.com/noe.trevino/haunt.nvim/commit/0507755988372efaf073bc760a32e51765b1c482))
+
 ## [1.3.1](https://github.com/TheNoeTrevino/haunt.nvim/compare/v1.3.0...v1.3.1) (2026-08-09)
 
 
