@@ -214,9 +214,9 @@ end
 
 --- Toggle annotation visibility at the current cursor position.
 ---
---- If a bookmark exists at the current line and has an annotation,
---- this will show/hide the annotation virtual text. If no annotation
---- exists, does nothing.
+--- Acts on the bookmark starting on the current line, else the innermost
+--- range containing it. If that bookmark has an annotation, this will
+--- show/hide the annotation virtual text. If no annotation exists, does nothing.
 ---
 ---@return boolean success True if toggled successfully
 ---
@@ -243,8 +243,8 @@ function M.toggle_annotation()
 	local line = cursor[1] -- 1-based line number
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
 
-	-- Check if a bookmark exists at this line
-	local existing_bookmark, _ = store.get_bookmark_at_line(filepath, line)
+	-- The bookmark starting here, else the innermost range covering the line
+	local existing_bookmark, _ = store.get_innermost_bookmark(filepath, line)
 	if not existing_bookmark then
 		vim.notify("haunt.nvim: No bookmark on this line", vim.log.levels.INFO)
 		return false
@@ -261,6 +261,7 @@ function M.toggle_annotation()
 		display.clear_note(bufnr, existing_bookmark)
 		visible = false
 	else
+		-- At the bookmark's own line: the cursor may be inside a range
 		display.render_note(bufnr, existing_bookmark)
 		visible = true
 	end
@@ -269,7 +270,7 @@ function M.toggle_annotation()
 		bookmark = existing_bookmark,
 		bufnr = bufnr,
 		file = filepath,
-		line = line,
+		line = existing_bookmark.line,
 		visible = visible,
 	})
 
@@ -347,6 +348,9 @@ end
 
 --- Delete the bookmark at the current cursor position.
 ---
+--- Deletes the bookmark starting on the current line, else the innermost
+--- range containing it.
+---
 --- Removes the bookmark from persistence and cleans up all visual elements
 --- (sign, extmarks, annotations).
 ---
@@ -374,8 +378,8 @@ function M.delete()
 	local line = cursor[1] -- 1-based line number
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
 
-	-- Check if a bookmark exists at this line
-	local existing_bookmark, _ = store.get_bookmark_at_line(filepath, line)
+	-- The bookmark starting here, else the innermost range covering the line
+	local existing_bookmark, _ = store.get_innermost_bookmark(filepath, line)
 	if not existing_bookmark then
 		vim.notify("haunt.nvim: No bookmark on this line", vim.log.levels.INFO)
 		return false
@@ -399,7 +403,7 @@ function M.delete()
 		bookmark = existing_bookmark,
 		bufnr = bufnr,
 		file = filepath,
-		line = line,
+		line = existing_bookmark.line,
 	})
 
 	vim.notify("haunt.nvim: Bookmark deleted", vim.log.levels.INFO)

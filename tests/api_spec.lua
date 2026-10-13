@@ -1109,6 +1109,48 @@ describe("haunt.api", function()
 			assert.are.equal(80, by_note("range").end_line)
 		end)
 
+		it("delete on 75 deletes the single", function()
+			vim.api.nvim_win_set_cursor(0, { 75, 0 })
+			assert.is_true(api.delete())
+
+			assert.is_nil(by_note("single"))
+			assert.is_not_nil(by_note("range"))
+		end)
+
+		it("delete on 76 deletes the range", function()
+			local hook_line
+			require("haunt.hooks").on_delete(function(ctx)
+				hook_line = ctx.line
+			end)
+
+			vim.api.nvim_win_set_cursor(0, { 76, 0 })
+			assert.is_true(api.delete())
+
+			assert.is_nil(by_note("range"))
+			assert.is_not_nil(by_note("single"))
+			assert.are.equal(70, hook_line, "the hook gets the bookmark's line, not the cursor's")
+		end)
+
+		it("toggle on 75 toggles the single", function()
+			vim.api.nvim_win_set_cursor(0, { 75, 0 })
+			assert.is_true(api.toggle_annotation())
+
+			assert.is_nil(by_note("single").annotation_extmark_id)
+			assert.is_not_nil(by_note("range").annotation_extmark_id)
+		end)
+
+		it("toggle on 76 toggles the range, drawing it on its own line", function()
+			vim.api.nvim_win_set_cursor(0, { 76, 0 })
+			api.toggle_annotation()
+			assert.is_nil(by_note("range").annotation_extmark_id)
+			assert.is_not_nil(by_note("single").annotation_extmark_id)
+
+			api.toggle_annotation()
+			local range = by_note("range")
+			assert.is_not_nil(range.annotation_extmark_id)
+			assert.are.equal(70, display.get_extmark_line(bufnr, range.annotation_extmark_id))
+		end)
+
 		it("next / prev stops at 70, then 75", function()
 			vim.api.nvim_win_set_cursor(0, { 1, 0 })
 			api.next()
