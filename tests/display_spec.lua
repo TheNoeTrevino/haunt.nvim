@@ -618,6 +618,111 @@ describe("haunt.display", function()
 		end)
 	end)
 
+	describe("render_bookmark / clear_bookmark / render_note / clear_note", function()
+		local bufnr
+
+		before_each(function()
+			bufnr = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Line 1", "Line 2", "Line 3", "Line 4" })
+		end)
+
+		after_each(function()
+			if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+				vim.api.nvim_buf_delete(bufnr, { force = true })
+			end
+		end)
+
+		--- Count haunt extmarks in the buffer.
+		---@return number count
+		local function mark_count()
+			return #vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, {})
+		end
+
+		--- Count haunt signs in the buffer.
+		---@return number count
+		local function sign_count()
+			return #vim.fn.sign_getplaced(bufnr, { group = "haunt_signs" })[1].signs
+		end
+
+		it("draws the tracking mark, sign and note", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+
+			assert.is_true(display.render_bookmark(bufnr, bookmark, true))
+
+			assert.is_number(bookmark.extmark_id)
+			assert.is_number(bookmark.annotation_extmark_id)
+			assert.are.equal(2, mark_count())
+			assert.are.equal(1, sign_count())
+		end)
+
+		it("skips the note when show_note is false", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+
+			display.render_bookmark(bufnr, bookmark, false)
+
+			assert.is_nil(bookmark.annotation_extmark_id)
+			assert.are.equal(1, mark_count())
+		end)
+
+		it("does not duplicate visuals when called twice", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+
+			display.render_bookmark(bufnr, bookmark, true)
+			display.render_bookmark(bufnr, bookmark, true)
+
+			assert.are.equal(2, mark_count())
+			assert.are.equal(1, sign_count())
+		end)
+
+		it("returns false when the line is out of range", function()
+			local bookmark = persistence.create_bookmark("test.lua", 99, "note")
+
+			assert.is_false(display.render_bookmark(bufnr, bookmark, true))
+			assert.is_nil(bookmark.extmark_id)
+			assert.are.equal(0, mark_count())
+		end)
+
+		it("clear_bookmark removes everything and resets the IDs", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+			display.render_bookmark(bufnr, bookmark, true)
+
+			display.clear_bookmark(bufnr, bookmark)
+
+			assert.is_nil(bookmark.extmark_id)
+			assert.is_nil(bookmark.annotation_extmark_id)
+			assert.are.equal(0, mark_count())
+			assert.are.equal(0, sign_count())
+		end)
+
+		it("render_note replaces the note and can move it", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+			display.render_bookmark(bufnr, bookmark, true)
+
+			display.render_note(bufnr, bookmark, 3)
+
+			assert.are.equal(2, mark_count())
+			assert.are.equal(3, display.get_extmark_line(bufnr, bookmark.annotation_extmark_id))
+		end)
+
+		it("render_note draws nothing for a bookmark without a note", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2)
+
+			assert.is_nil(display.render_note(bufnr, bookmark))
+			assert.are.equal(0, mark_count())
+		end)
+
+		it("clear_note keeps the tracking mark and sign", function()
+			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
+			display.render_bookmark(bufnr, bookmark, true)
+
+			display.clear_note(bufnr, bookmark)
+
+			assert.is_nil(bookmark.annotation_extmark_id)
+			assert.are.equal(1, mark_count())
+			assert.are.equal(1, sign_count())
+		end)
+	end)
+
 	describe("clear_buffer_marks", function()
 		local bufnr
 

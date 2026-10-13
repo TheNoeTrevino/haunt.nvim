@@ -13,6 +13,10 @@
 ---@field clear_buffer_signs fun(bufnr: number): boolean
 ---@field place_sign fun(bufnr: number, line: number, sign_id: number)
 ---@field unplace_sign fun(bufnr: number, sign_id: number)
+---@field render_note fun(bufnr: number, bookmark: Bookmark, line?: number): number|nil
+---@field clear_note fun(bufnr: number, bookmark: Bookmark)
+---@field render_bookmark fun(bufnr: number, bookmark: Bookmark, show_note: boolean): boolean
+---@field clear_bookmark fun(bufnr: number, bookmark: Bookmark)
 
 ---@type DisplayModule
 ---@diagnostic disable-next-line: missing-fields
@@ -589,6 +593,70 @@ function M.clear_buffer_signs(bufnr)
 	end
 
 	vim.fn.sign_unplace(SIGN_GROUP, { buffer = bufnr })
+	return true
+end
+
+--- Remove a bookmark's annotation, if it has one
+---@param bufnr number Buffer number
+---@param bookmark Bookmark The bookmark whose annotation to remove
+function M.clear_note(bufnr, bookmark)
+	if bookmark.annotation_extmark_id then
+		M.hide_annotation(bufnr, bookmark.annotation_extmark_id)
+		bookmark.annotation_extmark_id = nil
+	end
+end
+
+--- Draw a bookmark's annotation, replacing any it already has
+--- Does nothing beyond clearing when the bookmark has no note.
+---@param bufnr number Buffer number
+---@param bookmark Bookmark The bookmark whose annotation to draw
+---@param line? number 1-based line to draw on (default: bookmark.line)
+---@return number|nil extmark_id The annotation extmark ID, or nil if nothing was drawn
+function M.render_note(bufnr, bookmark, line)
+	M.clear_note(bufnr, bookmark)
+	if not bookmark.note then
+		return nil
+	end
+
+	local ok, extmark_id = pcall(M.show_annotation, bufnr, line or bookmark.line, bookmark.note)
+	bookmark.annotation_extmark_id = ok and extmark_id or nil
+	return bookmark.annotation_extmark_id
+end
+
+--- Remove every visual a bookmark has: tracking extmark, sign and annotation
+---@param bufnr number Buffer number
+---@param bookmark Bookmark The bookmark whose visuals to remove
+function M.clear_bookmark(bufnr, bookmark)
+	M.clear_note(bufnr, bookmark)
+	if bookmark.extmark_id then
+		M.delete_bookmark_mark(bufnr, bookmark.extmark_id)
+		M.unplace_sign(bufnr, bookmark.extmark_id)
+		bookmark.extmark_id = nil
+	end
+end
+
+--- Draw a bookmark from scratch: tracking extmark, sign and, optionally, annotation
+--- Clears whatever the bookmark drew before, so it is safe to call again.
+---@param bufnr number Buffer number
+---@param bookmark Bookmark The bookmark to draw. Its extmark IDs are reassigned.
+---@param show_note boolean Whether to draw the annotation too
+---@return boolean success False if the tracking extmark could not be created
+function M.render_bookmark(bufnr, bookmark, show_note)
+	M.clear_bookmark(bufnr, bookmark)
+
+	local extmark_id = M.set_bookmark_mark(bufnr, bookmark)
+	if not extmark_id then
+		return false
+	end
+	bookmark.extmark_id = extmark_id
+
+	-- The sign reuses the tracking extmark's ID
+	M.place_sign(bufnr, bookmark.line, extmark_id)
+
+	if show_note then
+		M.render_note(bufnr, bookmark)
+	end
+
 	return true
 end
 
