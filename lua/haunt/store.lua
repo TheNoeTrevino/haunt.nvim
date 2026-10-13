@@ -7,6 +7,7 @@
 ---@field get_quickfix_items fun(opts?: QuickfixOpts): QuickfixItem[]
 ---@field find_by_id fun(bookmark_id: string): Bookmark|nil
 ---@field get_bookmark_at_line fun(filepath: string, line: number): Bookmark|nil, number|nil
+---@field get_innermost_bookmark fun(filepath: string, line: number): Bookmark|nil, number|nil
 ---@field get_sorted_bookmarks_for_file fun(filepath: string): Bookmark[]
 ---@field add_bookmark fun(bookmark: Bookmark)
 ---@field remove_bookmark fun(bookmark: Bookmark): boolean
@@ -167,25 +168,77 @@ function M.find_by_id(bookmark_id)
 	end)
 end
 
---- Find a bookmark at a specific line in a file
+---@private
+--- How many lines past its first line a bookmark covers: 0 for a single line.
+---@param bookmark Bookmark
+---@return number span
+local function span_of(bookmark)
+	if bookmark.end_line and bookmark.end_line > bookmark.line then
+		return bookmark.end_line - bookmark.line
+	end
+	return 0
+end
+
+---@private
+--- Pick the best bookmark in a file that matches `predicate`.
+--- Edits can stack several bookmarks on one start line, so ties are broken
+--- the same way everywhere: single line before range, then the smaller
+--- range, then the older one (earlier in the array).
 ---@param filepath string Normalized absolute file path
----@param line number 1-based line number
----@return Bookmark|nil bookmark The bookmark at the line, or nil if none exists
+---@param predicate fun(bookmark: Bookmark): boolean
+---@return Bookmark|nil bookmark The winning bookmark, or nil if none matched
 ---@return number|nil index The index of the bookmark in the bookmarks table
-function M.get_bookmark_at_line(filepath, line)
+local function best_match(filepath, predicate)
 	-- If file has no name, can't have bookmarks
 	if filepath == "" then
 		return nil, nil
 	end
 
-	-- Iterate (index, bookmark) pairs so the index survives the pipeline;
-	-- `find` short-circuits on the first match and returns nil, nil otherwise.
-	---@param bookmark Bookmark
-	local i, found = vim.iter(ipairs(synced_bookmarks())):find(function(_, bookmark)
-		return bookmark.file == filepath and bookmark.line == line
-	end)
+	local found, found_index, found_span = nil, nil, nil
+	for i, bookmark in ipairs(synced_bookmarks()) do
+		if bookmark.file == filepath and predicate(bookmark) then
+			local span = span_of(bookmark)
+			-- Strictly smaller only, so the older bookmark keeps a tie
+			if not found_span or span < found_span then
+				found, found_index, found_span = bookmark, i, span
+			end
+		end
+	end
 
-	return found, i
+	return found, found_index
+end
+
+--- Find the bookmark that starts on a specific line in a file
+--- When several start there, prefers a single line, then the smaller range,
+--- then the older bookmark.
+---@param filepath string Normalized absolute file path
+---@param line number 1-based line number
+---@return Bookmark|nil bookmark The bookmark starting on the line, or nil if none exists
+---@return number|nil index The index of the bookmark in the bookmarks table
+function M.get_bookmark_at_line(filepath, line)
+	---@param bookmark Bookmark
+	return best_match(filepath, function(bookmark)
+		return bookmark.line == line
+	end)
+end
+
+--- Find the innermost bookmark covering a line in a file
+--- A bookmark starting on the line wins. Otherwise the smallest range that
+--- contains the line, with ties broken as in `get_bookmark_at_line`.
+---@param filepath string Normalized absolute file path
+---@param line number 1-based line number
+---@return Bookmark|nil bookmark The innermost bookmark, or nil if none covers the line
+---@return number|nil index The index of the bookmark in the bookmarks table
+function M.get_innermost_bookmark(filepath, line)
+	local found, index = M.get_bookmark_at_line(filepath, line)
+	if found then
+		return found, index
+	end
+
+	---@param bookmark Bookmark
+	return best_match(filepath, function(bookmark)
+		return bookmark.line < line and bookmark.line + span_of(bookmark) >= line
+	end)
 end
 
 --- Get bookmarks for a specific file, sorted by their current line.

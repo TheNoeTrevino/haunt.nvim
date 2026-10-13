@@ -179,6 +179,100 @@ describe("haunt.store", function()
 			assert.are.equal("file_a", bookmark_a.id)
 			assert.are.equal("file_b", bookmark_b.id)
 		end)
+
+		it("ignores a range that only contains the line", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "range" })
+
+			assert.is_nil(store.get_bookmark_at_line("/test.lua", 75))
+			assert.are.equal("range", store.get_bookmark_at_line("/test.lua", 70).id)
+		end)
+
+		-- Edits can stack bookmarks on one start line (docs/visual-annotations/priority.md)
+		it("prefers a single line over a range on a stacked start line", function()
+			store.add_bookmark({ file = "/test.lua", line = 3, end_line = 5, id = "range" })
+			store.add_bookmark({ file = "/test.lua", line = 3, id = "single" })
+
+			local bookmark, index = store.get_bookmark_at_line("/test.lua", 3)
+
+			assert.are.equal("single", bookmark.id)
+			assert.are.equal(2, index)
+		end)
+
+		it("prefers the smaller range on a stacked start line", function()
+			store.add_bookmark({ file = "/test.lua", line = 3, end_line = 9, id = "big" })
+			store.add_bookmark({ file = "/test.lua", line = 3, end_line = 4, id = "small" })
+
+			assert.are.equal("small", store.get_bookmark_at_line("/test.lua", 3).id)
+		end)
+
+		it("prefers the older bookmark when the size ties", function()
+			store.add_bookmark({ file = "/test.lua", line = 3, id = "older" })
+			store.add_bookmark({ file = "/test.lua", line = 3, id = "newer" })
+			store.add_bookmark({ file = "/test.lua", line = 7, end_line = 9, id = "older_range" })
+			store.add_bookmark({ file = "/test.lua", line = 7, end_line = 9, id = "newer_range" })
+
+			assert.are.equal("older", store.get_bookmark_at_line("/test.lua", 3).id)
+			assert.are.equal("older_range", store.get_bookmark_at_line("/test.lua", 7).id)
+		end)
+	end)
+
+	describe("get_innermost_bookmark", function()
+		it("returns the bookmark starting on the line", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "range" })
+			store.add_bookmark({ file = "/test.lua", line = 75, id = "single" })
+
+			local bookmark, index = store.get_innermost_bookmark("/test.lua", 75)
+
+			assert.are.equal("single", bookmark.id)
+			assert.are.equal(2, index)
+		end)
+
+		it("falls back to a range containing the line", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "range" })
+			store.add_bookmark({ file = "/test.lua", line = 75, id = "single" })
+
+			assert.are.equal("range", store.get_innermost_bookmark("/test.lua", 76).id)
+			assert.are.equal("range", store.get_innermost_bookmark("/test.lua", 80).id)
+		end)
+
+		it("returns nil outside every range", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "range" })
+
+			assert.is_nil(store.get_innermost_bookmark("/test.lua", 69))
+			assert.is_nil(store.get_innermost_bookmark("/test.lua", 81))
+			assert.is_nil(store.get_innermost_bookmark("/other.lua", 75))
+			assert.is_nil(store.get_innermost_bookmark("", 75))
+		end)
+
+		it("picks the smallest of nested ranges", function()
+			store.add_bookmark({ file = "/test.lua", line = 60, end_line = 90, id = "outer" })
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "inner" })
+
+			assert.are.equal("inner", store.get_innermost_bookmark("/test.lua", 75).id)
+			assert.are.equal("outer", store.get_innermost_bookmark("/test.lua", 85).id)
+		end)
+
+		it("picks the smaller of partially overlapping ranges", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "wide" })
+			store.add_bookmark({ file = "/test.lua", line = 75, end_line = 78, id = "narrow" })
+
+			assert.are.equal("narrow", store.get_innermost_bookmark("/test.lua", 77).id)
+			assert.are.equal("wide", store.get_innermost_bookmark("/test.lua", 79).id)
+		end)
+
+		it("prefers the older of equally sized overlapping ranges", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "older" })
+			store.add_bookmark({ file = "/test.lua", line = 75, end_line = 85, id = "newer" })
+
+			assert.are.equal("older", store.get_innermost_bookmark("/test.lua", 78).id)
+		end)
+
+		it("prefers a range starting on the line over a smaller containing range", function()
+			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "containing" })
+			store.add_bookmark({ file = "/test.lua", line = 75, end_line = 95, id = "starting" })
+
+			assert.are.equal("starting", store.get_innermost_bookmark("/test.lua", 75).id)
+		end)
 	end)
 
 	describe("get_sorted_bookmarks_for_file", function()
