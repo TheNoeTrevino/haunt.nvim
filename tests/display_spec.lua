@@ -540,6 +540,84 @@ describe("haunt.display", function()
 		end)
 	end)
 
+	-- Issue #108: a range bookmark is one extmark whose end follows edits too.
+	describe("set_bookmark_mark / get_extmark_range for ranges", function()
+		local bufnr
+
+		before_each(function()
+			bufnr = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_set_current_buf(bufnr)
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "one", "two", "three", "four", "five", "six" })
+		end)
+
+		after_each(function()
+			if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+				vim.api.nvim_buf_delete(bufnr, { force = true })
+			end
+		end)
+
+		--- Mark lines `line`..`end_line` and return the extmark id.
+		---@param line number
+		---@param end_line number
+		---@return number extmark_id
+		local function mark(line, end_line)
+			local bookmark = persistence.create_bookmark("test.lua", line, "a block", end_line)
+			return display.set_bookmark_mark(bufnr, bookmark)
+		end
+
+		it("reports the range it was created with", function()
+			local id = mark(2, 4)
+			assert.are.same({ 2, 4 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("reports no end for a single-line bookmark", function()
+			local id = display.set_bookmark_mark(bufnr, persistence.create_bookmark("test.lua", 3))
+			assert.are.same({ 3 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("moves the whole range when lines are inserted above", function()
+			local id = mark(2, 4)
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "new top" })
+			assert.are.same({ 3, 5 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("grows when a line is inserted inside the range", function()
+			local id = mark(2, 4)
+			vim.api.nvim_buf_set_lines(bufnr, 2, 2, false, { "inside" })
+			assert.are.same({ 2, 5 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("shrinks, not creeps, when its last line is deleted", function()
+			local id = mark(2, 4)
+			vim.api.nvim_buf_set_lines(bufnr, 3, 4, false, {})
+			assert.are.same({ 2, 3 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("does not absorb a line opened below its last line", function()
+			local id = mark(2, 4)
+			vim.api.nvim_win_set_cursor(0, { 4, 0 })
+			vim.cmd("normal! obelow")
+			assert.are.same({ 2, 4 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("tracks a range that ends on the last line of the buffer", function()
+			local id = mark(5, 6)
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "new top" })
+			assert.are.same({ 6, 7 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("clamps a range that runs past the end of the buffer", function()
+			local id = mark(5, 99)
+			assert.are.same({ 5, 6 }, { display.get_extmark_range(bufnr, id) })
+		end)
+
+		it("never ends before it starts when every line is deleted", function()
+			local id = mark(2, 4)
+			vim.api.nvim_buf_set_lines(bufnr, 1, 4, false, {})
+			assert.are.same({ 2, 2 }, { display.get_extmark_range(bufnr, id) })
+		end)
+	end)
+
 	describe("clear_buffer_marks", function()
 		local bufnr
 
