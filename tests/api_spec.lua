@@ -1410,6 +1410,100 @@ describe("haunt.api", function()
 		end)
 	end)
 
+	describe("range rail with reveal = cursor", function()
+		local bufnr, test_file
+
+		--- The rail signs in the buffer, keyed by 1-based line.
+		---@return table<number, string> rows
+		local function rail()
+			local rows = {}
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			for _, mark in ipairs(marks) do
+				if mark[4].sign_text then
+					rows[mark[2] + 1] = vim.trim(mark[4].sign_text)
+				end
+			end
+			return rows
+		end
+
+		--- Let queued rail redraws run: they were scheduled before this callback.
+		local function settle()
+			local done = false
+			vim.schedule(function()
+				done = true
+			end)
+			vim.wait(1000, function()
+				return done
+			end)
+		end
+
+		--- Put the cursor on a line and fire CursorMoved, as the main loop would.
+		---@param line number 1-based line
+		local function move_to(line)
+			vim.api.nvim_win_set_cursor(0, { line, 0 })
+			vim.api.nvim_exec_autocmds("CursorMoved", { buffer = bufnr })
+		end
+
+		before_each(function()
+			require("haunt.config").setup({ range = { reveal = "cursor" } })
+			local lines = {}
+			for i = 1, 12 do
+				lines[i] = "line " .. i
+			end
+			bufnr, test_file = helpers.create_test_buffer(lines)
+			api.annotate("range", { line1 = 5, line2 = 8 })
+			api.annotate("other", { line1 = 10, line2 = 11 })
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("hides the rail while the cursor is outside every range", function()
+			move_to(2)
+			assert.are.same({}, rail())
+		end)
+
+		it("shows only the rail of the range holding the cursor", function()
+			move_to(7)
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+			move_to(10)
+			assert.are.same({ [11] = "╰" }, rail())
+		end)
+
+		it("counts the first line of a range as inside it", function()
+			move_to(5)
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("hides the rail again when the cursor leaves the range", function()
+			move_to(7)
+			move_to(9)
+			assert.are.same({}, rail())
+		end)
+
+		it("hides the rail when leaving the buffer and shows it on return", function()
+			move_to(7)
+			local other = vim.api.nvim_create_buf(true, true)
+			vim.api.nvim_set_current_buf(other)
+			assert.are.same({}, rail())
+
+			vim.api.nvim_set_current_buf(bufnr)
+			settle()
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+			vim.api.nvim_buf_delete(other, { force = true })
+		end)
+
+		it("follows the range after an edit", function()
+			move_to(6)
+			vim.cmd("normal! dd")
+			settle()
+			assert.are.same({ [6] = "│", [7] = "╰" }, rail())
+			move_to(8)
+			assert.are.same({}, rail())
+		end)
+	end)
+
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix
 	-- path: get_quickfix_items read the module-level bookmarks table directly
 	-- instead of going through get_bookmarks(), so it never synced from

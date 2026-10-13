@@ -553,6 +553,7 @@ end
 ---@field spans {[1]: number, [2]: number}[] 1-based first and last line of each range, as of the last refresh
 ---@field marks number[] Extmark IDs of the rail signs drawn now
 ---@field cfg HauntRangeConfig The range config the rail was last drawn with
+---@field shown string|nil Which spans the rail shows now, for reveal = "cursor"
 
 --- Rail state per buffer. A range keeps one tracking extmark; its rail is a
 --- sign extmark per covered line, so the rails are redrawn from the spans.
@@ -570,21 +571,51 @@ local function erase_rails(bufnr, state)
 	state.marks = {}
 end
 
+--- The cached spans the rail shows now. With reveal = "cursor" that is only
+--- the ranges holding the cursor, and none while the buffer isn't current.
+---@param bufnr number Buffer number
+---@param state HauntRailState
+---@param leaving? boolean True while the cursor is leaving the buffer
+---@return {[1]: number, [2]: number}[] spans
+---@return string key Identifies the returned spans, to skip redundant redraws
+local function visible_spans(bufnr, state, leaving)
+	if state.cfg.reveal ~= "cursor" then
+		return state.spans, "all"
+	end
+	if leaving or vim.api.nvim_get_current_buf() ~= bufnr then
+		return {}, ""
+	end
+
+	local line = vim.api.nvim_win_get_cursor(0)[1]
+	local spans, key = {}, {}
+	for i, span in ipairs(state.spans) do
+		if span[1] <= line and line <= span[2] then
+			table.insert(spans, span)
+			table.insert(key, i)
+		end
+	end
+	return spans, table.concat(key, ",")
+end
+
 --- Draw the rail signs for the cached spans, one sign per line.
 --- Where a nested range's last line is also inside an outer range, the outer
 --- range's body glyph wins so its rail stays unbroken.
 ---@param bufnr number Buffer number
 ---@param state HauntRailState
-local function draw_rails(bufnr, state)
+---@param leaving? boolean True while the cursor is leaving the buffer
+local function draw_rails(bufnr, state, leaving)
 	erase_rails(bufnr, state)
 	if state.cfg.style ~= "rail" then
 		return
 	end
 
+	local spans, key = visible_spans(bufnr, state, leaving)
+	state.shown = key
+
 	local glyphs = state.cfg.glyphs
 	---@type table<number, string>
 	local rows = {}
-	for _, span in ipairs(state.spans) do
+	for _, span in ipairs(spans) do
 		for line = span[1] + 1, span[2] do
 			if line < span[2] then
 				rows[line] = glyphs.body
@@ -609,6 +640,82 @@ local function draw_rails(bufnr, state)
 			end
 		end
 	end
+end
+
+--- Redraw the rail when the cursor enters or leaves one of the buffer's
+--- ranges. Uses the spans cached at the last refresh, so a cursor move
+--- costs no extmark reads and no store sync.
+---@param bufnr number Buffer number
+---@param leaving? boolean True while the cursor is leaving the buffer
+---@return boolean|nil detach True once the buffer has no rail state
+local function on_cursor(bufnr, leaving)
+	local state = _rails[bufnr]
+	if not state or state.cfg.reveal ~= "cursor" then
+		return true
+	end
+	local _, key = visible_spans(bufnr, state, leaving)
+	if key ~= state.shown then
+		draw_rails(bufnr, state, leaving)
+	end
+end
+
+--- Buffers whose cursor moves reveal the rail.
+---@type table<number, true>
+local _reveal_watched = {}
+
+--- Follow the cursor in a buffer drawn with reveal = "cursor".
+---@param bufnr number Buffer number
+local function watch_cursor(bufnr)
+	if _reveal_watched[bufnr] then
+		return
+	end
+	_reveal_watched[bufnr] = true
+
+	local group = vim.api.nvim_create_augroup("haunt_rail_reveal_" .. bufnr, { clear = true })
+	local function stop()
+		_reveal_watched[bufnr] = nil
+		pcall(vim.api.nvim_del_augroup_by_id, group)
+	end
+
+	vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+		group = group,
+		buffer = bufnr,
+		callback = function()
+			if on_cursor(bufnr) then
+				stop()
+			end
+		end,
+		desc = "Show a haunt range rail while the cursor is inside it",
+	})
+	-- The window's cursor is put back on this buffer's line only after BufEnter
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
+		buffer = bufnr,
+		callback = function()
+			vim.schedule(function()
+				if vim.api.nvim_buf_is_valid(bufnr) and on_cursor(bufnr) then
+					stop()
+				end
+			end)
+		end,
+		desc = "Show a haunt range rail on entering a buffer with the cursor inside it",
+	})
+	vim.api.nvim_create_autocmd("BufLeave", {
+		group = group,
+		buffer = bufnr,
+		callback = function()
+			if on_cursor(bufnr, true) then
+				stop()
+			end
+		end,
+		desc = "Hide haunt range rails when leaving the buffer",
+	})
+	vim.api.nvim_create_autocmd("BufUnload", {
+		group = group,
+		buffer = bufnr,
+		callback = stop,
+		desc = "Stop following the cursor for haunt range rails",
+	})
 end
 
 --- Redraw a buffer's rails from where its range extmarks sit now.
@@ -636,6 +743,9 @@ function M.refresh_rails(bufnr)
 		end
 	end
 
+	if state.cfg.reveal == "cursor" then
+		watch_cursor(bufnr)
+	end
 	draw_rails(bufnr, state)
 end
 
