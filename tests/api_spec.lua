@@ -1655,4 +1655,35 @@ describe("haunt.api", function()
 			assert.are.equal(5, items[1].end_lnum)
 		end)
 	end)
+
+	describe("yank_locations ranges", function()
+		local bufnr, test_file, original_setreg, yanked
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "a", "b", "c", "d", "e", "f" })
+			original_setreg = vim.fn.setreg
+			yanked = {}
+			vim.fn.setreg = function(reg, value)
+				yanked[reg] = value
+			end
+		end)
+
+		after_each(function()
+			vim.fn.setreg = original_setreg
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("copies a range as :L2-L4 and a single line as :L6", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("single")
+
+			assert.is_true(api.yank_locations())
+
+			local lines = vim.split(yanked["+"], "\n")
+			assert.are.equal(2, #lines)
+			assert.truthy(vim.endswith(lines[1], ' :L2-L4 - "block"'))
+			assert.truthy(vim.endswith(lines[2], ' :L6 - "single"'))
+		end)
+	end)
 end)
