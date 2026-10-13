@@ -170,30 +170,20 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 	---@cast hooks -nil
 
 	local old_note = bookmark.note
-	local old_annotation_extmark_id = bookmark.annotation_extmark_id
+	local was_shown = bookmark.annotation_extmark_id ~= nil
 
-	-- Hide old annotation if it exists
-	if old_annotation_extmark_id then
-		display.hide_annotation(bufnr, old_annotation_extmark_id)
-	end
-
-	-- Show new annotation and update bookmark
-	local new_extmark_id = display.show_annotation(bufnr, line, new_note)
 	bookmark.note = new_note
-	bookmark.annotation_extmark_id = new_extmark_id
+	display.render_note(bufnr, bookmark, line)
 
 	-- Save to persistence
 	local save_ok = store.save()
 	if not save_ok then
 		-- Rollback
 		bookmark.note = old_note
-		bookmark.annotation_extmark_id = old_annotation_extmark_id
-		if new_extmark_id then
-			display.hide_annotation(bufnr, new_extmark_id)
-		end
-
-		if old_annotation_extmark_id then
-			bookmark.annotation_extmark_id = display.show_annotation(bufnr, line, old_note or "")
+		if was_shown then
+			display.render_note(bufnr, bookmark, line)
+		else
+			display.clear_note(bufnr, bookmark)
 		end
 
 		vim.notify("haunt.nvim: Failed to save bookmarks after annotation update", vim.log.levels.ERROR)
@@ -258,12 +248,10 @@ function M.toggle_annotation()
 	-- toggle visibility
 	local visible
 	if existing_bookmark.annotation_extmark_id then
-		display.hide_annotation(bufnr, existing_bookmark.annotation_extmark_id)
-		existing_bookmark.annotation_extmark_id = nil
+		display.clear_note(bufnr, existing_bookmark)
 		visible = false
 	else
-		local extmark_id = display.show_annotation(bufnr, line, existing_bookmark.note)
-		existing_bookmark.annotation_extmark_id = extmark_id
+		display.render_note(bufnr, existing_bookmark, line)
 		visible = true
 	end
 
@@ -326,30 +314,14 @@ function M.toggle_all_lines()
 
 		-- actual toggling logic
 		if _annotations_visible then
-			-- Only update annotation if it doesn't exist or is at wrong position
-			local needs_update = true
-			if bookmark.annotation_extmark_id then
-				local annotation_line = display.get_extmark_line(bufnr, bookmark.annotation_extmark_id)
-				-- If annotation is already at the correct position, no update needed
-				if annotation_line == current_line then
-					needs_update = false
-				else
-					-- Position changed, hide old annotation
-					display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
-				end
-			end
-
-			if needs_update then
-				local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
-				if ok then
-					bookmark.annotation_extmark_id = extmark_id
-				end
+			-- Only redraw if the note is missing or sits on the wrong line
+			local annotation_line = bookmark.annotation_extmark_id
+				and display.get_extmark_line(bufnr, bookmark.annotation_extmark_id)
+			if annotation_line ~= current_line then
+				display.render_note(bufnr, bookmark, current_line)
 			end
 		else
-			if bookmark.annotation_extmark_id then
-				display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
-				bookmark.annotation_extmark_id = nil
-			end
+			display.clear_note(bufnr, bookmark)
 		end
 
 		toggled_count = toggled_count + 1
@@ -1116,13 +1088,7 @@ function M.refresh_above_annotations()
 			goto continue
 		end
 
-		display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
-		local ok, extmark_id = pcall(display.show_annotation, bufnr, current_line, bookmark.note)
-		if ok then
-			bookmark.annotation_extmark_id = extmark_id
-		else
-			bookmark.annotation_extmark_id = nil
-		end
+		display.render_note(bufnr, bookmark, current_line)
 
 		::continue::
 	end
