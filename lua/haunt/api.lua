@@ -512,11 +512,25 @@ local function take_visual_range()
 		return nil
 	end
 
-	local a = vim.fn.getpos("v")[2]
-	local b = vim.fn.getpos(".")[2]
+	local line1 = vim.fn.getpos("v")[2]
+	local line2 = vim.fn.getpos(".")[2]
 	vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
 
-	return { line1 = math.min(a, b), line2 = math.max(a, b) }
+	return { line1 = line1, line2 = line2 }
+end
+
+--- Order a line range and clamp it to the buffer.
+---@param range HauntLineRange
+---@param line_count number Lines in the buffer
+---@return number|nil line First line, or nil when the range starts past the buffer
+---@return number|nil end_line Last line
+local function normalize_range(range, line_count)
+	local first = math.min(range.line1, range.line2)
+	local last = math.max(range.line1, range.line2)
+	if first > line_count then
+		return nil, nil
+	end
+	return math.max(first, 1), math.min(last, line_count)
 end
 
 --- Add or edit an annotation for a bookmark.
@@ -570,8 +584,14 @@ function M.annotate(text, range)
 	local line, end_line
 	if range then
 		local line_count = vim.api.nvim_buf_line_count(bufnr)
-		line = math.max(math.min(range.line1, range.line2), 1)
-		end_line = math.min(math.max(range.line1, range.line2), line_count)
+		line, end_line = normalize_range(range, line_count)
+		if not line then
+			vim.notify(
+				string.format("haunt.nvim: range starts past the end of the buffer (%d lines)", line_count),
+				vim.log.levels.ERROR
+			)
+			return false
+		end
 	else
 		line = vim.api.nvim_win_get_cursor(0)[1] -- 1-based line number
 	end

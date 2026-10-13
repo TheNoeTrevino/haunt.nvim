@@ -974,6 +974,31 @@ describe("haunt.api", function()
 			assert.is_nil(read_saved()[1].end_line)
 		end)
 
+		it("rejects a range that starts past the end of the buffer", function()
+			helpers.cleanup_buffer(bufnr, test_file)
+			bufnr, test_file = helpers.create_test_buffer({ "one", "two", "three", "four", "five" })
+
+			local messages = {}
+			local original_notify = vim.notify
+			vim.notify = function(msg)
+				table.insert(messages, msg)
+			end
+			local ok = api.annotate("too far", { line1 = 8, line2 = 10 })
+			vim.notify = original_notify
+
+			assert.is_false(ok)
+			assert.are.equal(0, #api.get_bookmarks())
+			assert.is_truthy(table.concat(messages, "\n"):find("past the end of the buffer", 1, true))
+		end)
+
+		it("clamps a range that runs past the end of the buffer", function()
+			api.annotate("a block", { line1 = 5, line2 = 99 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(5, bookmark.line)
+			assert.are.equal(6, bookmark.end_line)
+		end)
+
 		it("annotates the range, not the cursor line", function()
 			vim.api.nvim_win_set_cursor(0, { 6, 0 })
 			api.annotate("a block", { line1 = 2, line2 = 4 })
