@@ -923,6 +923,64 @@ describe("haunt.api", function()
 		end)
 	end)
 
+	-- Issue #108: annotations that cover a range of lines.
+	describe("annotate with a range", function()
+		local bufnr, test_file
+
+		--- Read the bookmarks the store wrote to disk.
+		---@return table[] bookmarks Raw entries from the storage file
+		local function read_saved()
+			local path = require("haunt.persistence").get_storage_path()
+			local data = vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
+			return data.bookmarks
+		end
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "one", "two", "three", "four", "five", "six" })
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("saves end_line for an explicit range", function()
+			assert.is_true(api.annotate("a block", { line1 = 2, line2 = 4 }))
+
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(1, #bookmarks)
+			assert.are.equal(2, bookmarks[1].line)
+			assert.are.equal(4, bookmarks[1].end_line)
+
+			local saved = read_saved()
+			assert.are.equal(2, saved[1].line)
+			assert.are.equal(4, saved[1].end_line)
+		end)
+
+		it("orders a reversed range", function()
+			api.annotate("a block", { line1 = 4, line2 = 2 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(2, bookmark.line)
+			assert.are.equal(4, bookmark.end_line)
+		end)
+
+		it("treats a one-line range as a normal bookmark", function()
+			api.annotate("one line", { line1 = 3, line2 = 3 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(3, bookmark.line)
+			assert.is_nil(bookmark.end_line)
+			assert.is_nil(read_saved()[1].end_line)
+		end)
+
+		it("annotates the range, not the cursor line", function()
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("a block", { line1 = 2, line2 = 4 })
+
+			assert.are.equal(2, api.get_bookmarks()[1].line)
+		end)
+	end)
+
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix
 	-- path: get_quickfix_items read the module-level bookmarks table directly
 	-- instead of going through get_bookmarks(), so it never synced from

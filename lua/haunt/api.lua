@@ -18,7 +18,7 @@
 ---@field load fun(): boolean
 ---@field restore_buffer_bookmarks fun(bufnr: number): boolean
 ---@field save fun(): boolean
----@field annotate fun(text?: string): boolean
+---@field annotate fun(text?: string, range?: HauntLineRange): boolean
 ---@field clear fun(): boolean
 ---@field clear_all fun(): boolean
 ---@field next fun(): boolean
@@ -147,8 +147,9 @@ end
 ---@param filepath string Normalized absolute file path
 ---@param line number 1-based line number
 ---@param note string|nil Optional annotation text
+---@param end_line? number Optional 1-based last line, for a range annotation
 ---@return boolean success True if bookmark was created and persisted successfully
-local function create_and_persist_bookmark(bufnr, filepath, line, note)
+local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line)
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
@@ -156,7 +157,7 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 	---@cast hooks -nil
 
 	-- Create bookmark with unique ID
-	local new_bookmark, err = persistence.create_bookmark(filepath, line, note)
+	local new_bookmark, err = persistence.create_bookmark(filepath, line, note, end_line)
 	if not new_bookmark then
 		vim.notify("haunt.nvim: Failed to create bookmark: " .. (err or "unknown error"), vim.log.levels.ERROR)
 		return false
@@ -497,13 +498,22 @@ function M.delete()
 	return true
 end
 
+---@class HauntLineRange
+---@field line1 number 1-based first line
+---@field line2 number 1-based last line
+
 --- Add or edit an annotation for a bookmark.
 ---
 --- If a bookmark exists at the current line, updates its annotation.
 --- If no bookmark exists, creates a new bookmark with the annotation.
 --- Empty input cancels the operation.
 ---
+--- Given a `range`, the new bookmark covers every line in it: it is anchored
+--- at the first line and its `end_line` is saved with it. A range of one line
+--- is a normal bookmark.
+---
 ---@param text? string Optional annotation text. If provided, skips the input prompt.
+---@param range? HauntLineRange Optional line range to annotate instead of the cursor line.
 ---@return boolean success True if annotation was created/updated
 ---
 ---@usage >lua
@@ -512,8 +522,11 @@ end
 ---
 ---   -- Set annotation programmatically
 ---   require('haunt.api').annotate("TODO: Fix this bug")
+---
+---   -- Annotate lines 40-52 programmatically
+---   require('haunt.api').annotate("extract into a helper", { line1 = 40, line2 = 52 })
 --- <
-function M.annotate(text)
+function M.annotate(text, range)
 	ensure_modules()
 	---@cast store -nil
 
@@ -530,8 +543,14 @@ function M.annotate(text)
 		return false
 	end
 
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	local line = cursor[1] -- 1-based line number
+	local line, end_line
+	if range then
+		local line_count = vim.api.nvim_buf_line_count(bufnr)
+		line = math.max(math.min(range.line1, range.line2), 1)
+		end_line = math.min(math.max(range.line1, range.line2), line_count)
+	else
+		line = vim.api.nvim_win_get_cursor(0)[1] -- 1-based line number
+	end
 
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
 
@@ -560,7 +579,7 @@ function M.annotate(text)
 		return success
 	end
 
-	local success = create_and_persist_bookmark(bufnr, filepath, line, annotation)
+	local success = create_and_persist_bookmark(bufnr, filepath, line, annotation, end_line)
 	if success then
 		vim.notify("haunt.nvim: Annotation created", vim.log.levels.INFO)
 	end
