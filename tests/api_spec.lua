@@ -940,6 +940,7 @@ describe("haunt.api", function()
 		end)
 
 		after_each(function()
+			pcall(vim.keymap.del, "x", "<Plug>(haunt-test-annotate)")
 			helpers.cleanup_buffer(bufnr, test_file)
 		end)
 
@@ -979,6 +980,21 @@ describe("haunt.api", function()
 
 			assert.are.equal(2, api.get_bookmarks()[1].line)
 		end)
+
+		for _, mode in ipairs({ "v", "V", "\22" }) do
+			it("takes the range from Visual mode " .. vim.fn.keytrans(mode), function()
+				vim.keymap.set("x", "<Plug>(haunt-test-annotate)", function()
+					api.annotate("from visual")
+				end)
+				vim.api.nvim_win_set_cursor(0, { 2, 0 })
+				vim.api.nvim_feedkeys(mode .. "jj" .. vim.keycode("<Plug>(haunt-test-annotate)"), "x", false)
+
+				assert.are.equal("n", vim.fn.mode(), "annotate should leave Visual mode")
+				local bookmark = api.get_bookmarks()[1]
+				assert.are.equal(2, bookmark.line)
+				assert.are.equal(4, bookmark.end_line)
+			end)
+		end
 	end)
 
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix

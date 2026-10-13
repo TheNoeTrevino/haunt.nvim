@@ -502,18 +502,35 @@ end
 ---@field line1 number 1-based first line
 ---@field line2 number 1-based last line
 
+--- Read the line range of the active Visual selection, then leave Visual mode.
+--- Uses getpos("v") and the cursor because '< and '> are not updated until
+--- Visual mode ends. Every Visual mode (v, V, CTRL-V) is treated as linewise.
+---@return HauntLineRange|nil range nil when not in Visual mode
+local function take_visual_range()
+	local mode = vim.fn.mode()
+	if mode ~= "v" and mode ~= "V" and mode ~= "\22" then
+		return nil
+	end
+
+	local a = vim.fn.getpos("v")[2]
+	local b = vim.fn.getpos(".")[2]
+	vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+
+	return { line1 = math.min(a, b), line2 = math.max(a, b) }
+end
+
 --- Add or edit an annotation for a bookmark.
 ---
 --- If a bookmark exists at the current line, updates its annotation.
 --- If no bookmark exists, creates a new bookmark with the annotation.
 --- Empty input cancels the operation.
 ---
---- Given a `range`, the new bookmark covers every line in it: it is anchored
---- at the first line and its `end_line` is saved with it. A range of one line
---- is a normal bookmark.
+--- Called from Visual mode (any of v, V, CTRL-V), or given a `range`, the new
+--- bookmark covers every selected line: it is anchored at the first line and
+--- its `end_line` is saved with it. A range of one line is a normal bookmark.
 ---
 ---@param text? string Optional annotation text. If provided, skips the input prompt.
----@param range? HauntLineRange Optional line range to annotate instead of the cursor line.
+---@param range? HauntLineRange Optional line range. Defaults to the Visual selection, if any.
 ---@return boolean success True if annotation was created/updated
 ---
 ---@usage >lua
@@ -522,6 +539,9 @@ end
 ---
 ---   -- Set annotation programmatically
 ---   require('haunt.api').annotate("TODO: Fix this bug")
+---
+---   -- Annotate a Visual selection
+---   vim.keymap.set("x", "<leader>ha", function() require('haunt.api').annotate() end)
 ---
 ---   -- Annotate lines 40-52 programmatically
 ---   require('haunt.api').annotate("extract into a helper", { line1 = 40, line2 = 52 })
@@ -542,6 +562,10 @@ function M.annotate(text, range)
 		vim.notify("haunt.nvim: " .. error_msg, vim.log.levels.WARN)
 		return false
 	end
+
+	-- Always leave Visual mode before prompting, even when a range was passed.
+	local visual_range = take_visual_range()
+	range = range or visual_range
 
 	local line, end_line
 	if range then
