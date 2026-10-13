@@ -431,11 +431,7 @@ describe("haunt.store", function()
 
 		before_each(function()
 			display = require("haunt.display")
-			tmpfile = vim.fn.tempname() .. ".lua"
-			bufnr = vim.api.nvim_create_buf(false, false)
-			vim.api.nvim_buf_set_name(bufnr, tmpfile)
-			vim.api.nvim_set_current_buf(bufnr)
-			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "one", "two", "three", "four", "five", "six" })
+			bufnr, tmpfile = helpers.create_test_buffer({ "one", "two", "three", "four", "five", "six" })
 
 			local extmark_id = display.set_bookmark_mark(bufnr, { line = 2, end_line = 4 })
 			store.add_bookmark({
@@ -448,7 +444,7 @@ describe("haunt.store", function()
 		end)
 
 		after_each(function()
-			vim.api.nvim_buf_delete(bufnr, { force = true })
+			helpers.cleanup_buffer(bufnr, tmpfile)
 		end)
 
 		it("saves the tracked range, not the range it was created with", function()

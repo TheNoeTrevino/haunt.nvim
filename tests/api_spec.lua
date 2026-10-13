@@ -927,14 +927,6 @@ describe("haunt.api", function()
 	describe("annotate with a range", function()
 		local bufnr, test_file
 
-		--- Read the bookmarks the store wrote to disk.
-		---@return table[] bookmarks Raw entries from the storage file
-		local function read_saved()
-			local path = require("haunt.persistence").get_storage_path()
-			local data = vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
-			return data.bookmarks
-		end
-
 		before_each(function()
 			bufnr, test_file = helpers.create_test_buffer({ "one", "two", "three", "four", "five", "six" })
 		end)
@@ -952,7 +944,7 @@ describe("haunt.api", function()
 			assert.are.equal(2, bookmarks[1].line)
 			assert.are.equal(4, bookmarks[1].end_line)
 
-			local saved = read_saved()
+			local saved = helpers.read_bookmarks_file(require("haunt.persistence").get_storage_path()).bookmarks
 			assert.are.equal(2, saved[1].line)
 			assert.are.equal(4, saved[1].end_line)
 		end)
@@ -971,7 +963,8 @@ describe("haunt.api", function()
 			local bookmark = api.get_bookmarks()[1]
 			assert.are.equal(3, bookmark.line)
 			assert.is_nil(bookmark.end_line)
-			assert.is_nil(read_saved()[1].end_line)
+			local saved = helpers.read_bookmarks_file(require("haunt.persistence").get_storage_path()).bookmarks
+			assert.is_nil(saved[1].end_line)
 		end)
 
 		it("rejects a range that starts past the end of the buffer", function()
