@@ -176,6 +176,41 @@ describe("haunt.restoration", function()
 			local bookmarks_after = store.get_all_raw()
 			assert.is_not_nil(bookmarks_after[1].extmark_id)
 		end)
+		-- A reloaded buffer hands out extmark ids from 1 again, so the ids a
+		-- bookmark kept from before the reload can belong to another bookmark.
+		it("keeps every note when a reloaded buffer reuses extmark ids", function()
+			local lines = {}
+			for i = 1, 12 do
+				lines[i] = "line " .. i
+			end
+			bufnr, test_file = helpers.create_test_buffer(lines)
+			vim.cmd("silent write")
+
+			local a = { file = test_file, line = 2, id = "a", note = "A" }
+			local b = { file = test_file, line = 10, id = "b", note = "B" }
+			store.add_bookmark(a)
+			store.add_bookmark(b)
+			restoration.restore_buffer_bookmarks(bufnr, false)
+			display.render_note(bufnr, a)
+			display.render_note(bufnr, b)
+
+			vim.cmd("enew")
+			vim.cmd("bdelete " .. bufnr)
+			restoration.cleanup_buffer_tracking(bufnr)
+			vim.cmd("edit " .. vim.fn.fnameescape(test_file))
+			bufnr = vim.api.nvim_get_current_buf()
+
+			restoration.restore_buffer_bookmarks(bufnr, true)
+
+			local notes = {}
+			for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })) do
+				if mark[4].virt_text then
+					table.insert(notes, mark[2] + 1)
+				end
+			end
+			table.sort(notes)
+			assert.are.same({ 2, 10 }, notes)
+		end)
 	end)
 
 	describe("cleanup_buffer_tracking", function()

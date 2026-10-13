@@ -93,6 +93,12 @@ function M.restore_buffer_bookmarks(bufnr, annotations_visible)
 	-- Restore visual elements for each bookmark
 	local success = true
 	for _, bookmark in ipairs(buffer_bookmarks) do
+		-- The namespace is empty here, so any ids a bookmark still holds are
+		-- stale. A reloaded buffer reuses ids from 1, and clearing by a stale
+		-- id would delete another bookmark's fresh extmark.
+		bookmark.extmark_id = nil
+		bookmark.annotation_extmark_id = nil
+
 		-- Use pcall to handle race conditions where buffer becomes invalid
 		local ok, rendered = pcall(display.render_bookmark, bufnr, bookmark, annotations_visible)
 		if ok and rendered then
