@@ -38,8 +38,8 @@ local function is_valid_buffer(bufnr)
 end
 
 --- Define custom highlight groups for haunt
---- Creates HauntAnnotation highlight group with sensible defaults
---- Users can override this by defining the highlight group themselves
+--- Creates HauntAnnotation, HauntAnnotationBorder and HauntRange with sensible defaults
+--- Users can override these by defining the highlight groups themselves
 local function define_highlights()
 	local existing = vim.api.nvim_get_hl(0, { name = "HauntAnnotation" })
 	if vim.tbl_isempty(existing) then
@@ -49,6 +49,13 @@ local function define_highlights()
 	local existing_border = vim.api.nvim_get_hl(0, { name = "HauntAnnotationBorder" })
 	if vim.tbl_isempty(existing_border) then
 		vim.api.nvim_set_hl(0, "HauntAnnotationBorder", { link = "FloatBorder" })
+	end
+
+	-- The rail continues the range's head sign, so it matches its colour
+	local existing_range = vim.api.nvim_get_hl(0, { name = "HauntRange" })
+	if vim.tbl_isempty(existing_range) then
+		local sign_hl = require("haunt.config").get().sign_hl or "DiagnosticInfo"
+		vim.api.nvim_set_hl(0, "HauntRange", { link = sign_hl })
 	end
 end
 
@@ -63,7 +70,7 @@ local function ensure_highlights_defined()
 	vim.api.nvim_create_autocmd("ColorScheme", {
 		group = vim.api.nvim_create_augroup("haunt_highlights", { clear = true }),
 		callback = define_highlights,
-		desc = "Re-apply HauntAnnotation highlight after colorscheme change",
+		desc = "Re-apply haunt highlights after colorscheme change",
 	})
 end
 

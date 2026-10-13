@@ -808,4 +808,28 @@ describe("haunt.display", function()
 			assert.is_false(found)
 		end)
 	end)
+
+	describe("HauntRange highlight", function()
+		it("links to the bookmark sign highlight by default", function()
+			vim.api.nvim_set_hl(0, "HauntRange", {})
+			config.setup({ sign_hl = "WarningMsg" })
+			local bufnr = vim.api.nvim_create_buf(false, true)
+
+			display.show_annotation(bufnr, 1, "note")
+
+			assert.are.equal("WarningMsg", vim.api.nvim_get_hl(0, { name = "HauntRange" }).link)
+			vim.api.nvim_buf_delete(bufnr, { force = true })
+		end)
+
+		it("keeps a user definition", function()
+			vim.api.nvim_set_hl(0, "HauntRange", { fg = "#ff0000" })
+			local bufnr = vim.api.nvim_create_buf(false, true)
+
+			display.show_annotation(bufnr, 1, "note")
+
+			assert.are.equal(0xff0000, vim.api.nvim_get_hl(0, { name = "HauntRange" }).fg)
+			vim.api.nvim_set_hl(0, "HauntRange", {})
+			vim.api.nvim_buf_delete(bufnr, { force = true })
+		end)
+	end)
 end)
