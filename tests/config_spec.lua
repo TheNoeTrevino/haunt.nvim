@@ -224,4 +224,64 @@ describe("haunt.config", function()
 			assert.are.equal("/custom/path", cfg.data_dir)
 		end)
 	end)
+
+	describe("range configuration", function()
+		it("has rail defaults", function()
+			local range = config.get().range
+			assert.are.equal("rail", range.style)
+			assert.are.equal("always", range.reveal)
+			assert.are.same({ body = "│", tail = "╰" }, range.glyphs)
+			assert.are.equal(5, range.priority)
+		end)
+
+		it("merges a partial range block with the defaults", function()
+			config.setup({ range = { reveal = "cursor", glyphs = { body = "┃" } } })
+			local range = config.get().range
+			assert.are.equal("rail", range.style)
+			assert.are.equal("cursor", range.reveal)
+			assert.are.same({ body = "┃", tail = "╰" }, range.glyphs)
+		end)
+
+		local invalid = {
+			{ name = "style", opts = { style = "box" }, field = "style", want = "rail" },
+			{ name = "reveal", opts = { reveal = "hover" }, field = "reveal", want = "always" },
+			{ name = "priority", opts = { priority = "high" }, field = "priority", want = 5 },
+			{ name = "negative priority", opts = { priority = -1 }, field = "priority", want = 5 },
+		}
+
+		for _, case in ipairs(invalid) do
+			it("resets an invalid " .. case.name .. " to the default", function()
+				config.setup({ range = case.opts })
+				assert.are.equal(case.want, config.get().range[case.field])
+			end)
+		end
+
+		it("resets an invalid glyph without touching the valid one", function()
+			config.setup({ range = { glyphs = { body = "", tail = "+" } } })
+			assert.are.same({ body = "│", tail = "+" }, config.get().range.glyphs)
+		end)
+
+		it("resets a glyph wider than the sign column", function()
+			config.setup({ range = { glyphs = { tail = "abc" } } })
+			assert.are.equal("╰", config.get().range.glyphs.tail)
+		end)
+
+		it("resets a range that is not a table", function()
+			config.setup({ range = "rail" })
+			assert.are.same(config.DEFAULT.range, config.get().range)
+		end)
+
+		it("warns about an invalid option", function()
+			local warned
+			local original_notify = vim.notify
+			vim.notify = function(msg, level)
+				warned = { msg = msg, level = level }
+			end
+			config.setup({ range = { style = "box" } })
+			vim.notify = original_notify
+
+			assert.are.equal(vim.log.levels.WARN, warned.level)
+			assert.matches("range.style", warned.msg, 1, true)
+		end)
+	end)
 end)

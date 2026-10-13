@@ -37,6 +37,7 @@ M.DEFAULT_DATA_DIR = vim.fn.stdpath("data") .. "/haunt/"
 ---@field picker_opts? {snacks?: table, telescope?: table, fzf?: table} Default options for each picker, passed to the picker when it opens, including from `:HauntList` (default: {snacks = {}, telescope = {}, fzf = {}}). Options passed to |haunt-picker|.show() override these
 ---@field picker_keys table<string, table> Keybindings for picker actions (default: {delete = {key = 'd', mode = {'n'}, fzf_key = 'ctrl-x'}, edit_annotation = {key = 'a', mode = {'n'}, fzf_key = 'ctrl-e'}}). fzf-lua has no normal mode, so it uses `fzf_key` in place of `key` and `mode`, unless `key` is already an fzf key such as "ctrl-d"
 ---@field per_branch_bookmarks? boolean Whether bookmarks are scoped per git branch (default: true). When false, bookmarks persist across all branches in the same repository.
+---@field range? HauntRangeConfig How range annotations are drawn in the sign column. See |HauntRangeConfig|.
 --minidoc_replace_start M.DEFAULT = {
 M.DEFAULT = {
 	--minidoc_replace_end
@@ -61,8 +62,82 @@ M.DEFAULT = {
 		delete = { key = "d", mode = { "n" }, fzf_key = "ctrl-x" },
 		edit_annotation = { key = "a", mode = { "n" }, fzf_key = "ctrl-e" },
 	},
+	range = {
+		style = "rail",
+		reveal = "always",
+		glyphs = { body = "│", tail = "╰" },
+		priority = 5,
+	},
 }
 --minidoc_afterlines_end
+
+--- Sign column drawing for range annotations.
+---
+--- The first line of a range keeps the bookmark sign. With style "rail" the
+--- lines below it get `glyphs.body` and the last line gets `glyphs.tail`,
+--- highlighted with `HauntRange`. The rail sits at `priority`, below
+--- gitsigns (6), so git status on a covered line is never hidden.
+---@class HauntRangeConfig
+---@field style? "rail"|"none" How to draw the lines a range covers (default: "rail")
+---@field reveal? "always"|"cursor" "cursor" draws the rail only while the cursor is inside the range (default: "always")
+---@field glyphs? {body?: string, tail?: string} Sign text for the covered lines and the last line (default: {body = "│", tail = "╰"})
+---@field priority? number Sign priority of the rail (default: 5)
+
+---@private
+--- Allowed values for the enum-like range options.
+local RANGE_CHOICES = {
+	style = { rail = true, none = true },
+	reveal = { always = true, cursor = true },
+}
+
+---@private
+--- Warn about an invalid option and reset it to its default.
+---@param name string Option path, for the message
+---@param value any The rejected value
+local function reject(name, value)
+	vim.notify(
+		string.format("haunt.nvim: invalid %s %s, falling back to the default", name, vim.inspect(value)),
+		vim.log.levels.WARN
+	)
+end
+
+---@private
+--- Reset each invalid field of the merged `range` block to its default.
+---@param cfg HauntConfig The merged configuration, fixed in place
+local function validate_range(cfg)
+	local defaults = M.DEFAULT.range
+	if type(cfg.range) ~= "table" then
+		reject("range", cfg.range)
+		cfg.range = vim.deepcopy(defaults)
+		return
+	end
+
+	local range = cfg.range
+	for key, choices in pairs(RANGE_CHOICES) do
+		if not choices[range[key]] then
+			reject("range." .. key, range[key])
+			range[key] = defaults[key]
+		end
+	end
+
+	if type(range.priority) ~= "number" or range.priority < 0 then
+		reject("range.priority", range.priority)
+		range.priority = defaults.priority
+	end
+
+	if type(range.glyphs) ~= "table" then
+		reject("range.glyphs", range.glyphs)
+		range.glyphs = vim.deepcopy(defaults.glyphs)
+	end
+	for _, key in ipairs({ "body", "tail" }) do
+		local glyph = range.glyphs[key]
+		-- Sign text is at most two cells wide
+		if type(glyph) ~= "string" or glyph == "" or vim.fn.strdisplaywidth(glyph) > 2 then
+			reject("range.glyphs." .. key, glyph)
+			range.glyphs[key] = defaults.glyphs[key]
+		end
+	end
+end
 
 -- User configuration (merged with defaults after setup)
 ---@type HauntConfig|nil
@@ -75,6 +150,7 @@ function M.setup(opts)
 	opts = opts or {}
 	local base = user_config or M.DEFAULT
 	user_config = vim.tbl_deep_extend("force", base, opts)
+	validate_range(user_config)
 end
 
 ---@private

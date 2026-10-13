@@ -109,6 +109,12 @@ return {
       delete = { key = "d", mode = { "n" }, fzf_key = "ctrl-x" },
       edit_annotation = { key = "a", mode = { "n" }, fzf_key = "ctrl-e" },
     },
+    range = { -- how a range annotation is drawn in the sign column
+      style = "rail", -- or "none"
+      reveal = "always", -- or "cursor": only while the cursor is inside it
+      glyphs = { body = "│", tail = "╰" },
+      priority = 5, -- below gitsigns (6), so git status stays visible
+    },
   },
   -- recommended keymaps, with a helpful prefix alias
   init = function()
