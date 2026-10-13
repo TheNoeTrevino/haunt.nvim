@@ -1330,6 +1330,80 @@ describe("haunt.api", function()
 			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
 		end)
 
+		--- Let the queued rail redraw run: it was scheduled before this callback.
+		local function settle()
+			local done = false
+			vim.schedule(function()
+				done = true
+			end)
+			vim.wait(1000, function()
+				return done
+			end)
+		end
+
+		--- Edit in normal mode as its own undo step, then let the rail redraw.
+		---@param line number 1-based cursor line
+		---@param keys string Normal mode keys
+		local function edit(line, keys)
+			vim.cmd("let &undolevels = &undolevels")
+			vim.api.nvim_win_set_cursor(0, { line, 0 })
+			vim.cmd("normal! " .. keys)
+			settle()
+		end
+
+		it("grows the rail when a line is opened inside the range", function()
+			edit(6, "onew")
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "│", [9] = "╰" }, rail())
+		end)
+
+		it("does not grow the rail when a line is opened below its last line", function()
+			edit(8, "onew")
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("shrinks the rail when a covered line is deleted", function()
+			edit(6, "dd")
+			assert.are.same({ [6] = "│", [7] = "╰" }, rail())
+		end)
+
+		it("shrinks the rail when the last line is deleted", function()
+			edit(8, "dd")
+			assert.are.same({ [6] = "│", [7] = "╰" }, rail())
+		end)
+
+		it("moves the rail with lines added above the range", function()
+			edit(1, "Onew")
+			assert.are.same({ [7] = "│", [8] = "│", [9] = "╰" }, rail())
+		end)
+
+		it("restores the rail on undo after dd inside the range", function()
+			edit(6, "dd")
+			edit(6, "u")
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("restores the rail on undo after every covered line is deleted", function()
+			edit(5, "4dd")
+			assert.are.same({}, rail())
+			edit(5, "u")
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("keeps a range ending on the final line correct when that line is deleted", function()
+			api.annotate("to the end", { line1 = 10, line2 = 12 })
+			edit(12, "dd")
+			local rows = rail()
+			assert.are.equal("╰", rows[11])
+			assert.is_nil(rows[12])
+		end)
+
+		it("draws the rail once for several edits in one turn", function()
+			vim.api.nvim_buf_set_lines(bufnr, 5, 5, false, { "a" })
+			vim.api.nvim_buf_set_lines(bufnr, 5, 5, false, { "b" })
+			settle()
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "│", [9] = "│", [10] = "╰" }, rail())
+		end)
+
 		it("reload draws the rail again on the restored buffer", function()
 			api.reload()
 			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())

@@ -639,6 +639,52 @@ function M.refresh_rails(bufnr)
 	draw_rails(bufnr, state)
 end
 
+--- Buffers whose edits redraw the rail, and those with a redraw queued.
+---@type table<number, true>
+local _attached = {}
+---@type table<number, true>
+local _refresh_queued = {}
+
+--- Queue one rail redraw for the next event loop turn, however many edits
+--- land before it. Reading the ranges later also lets undo restore the
+--- tracking extmark's end first.
+---@param bufnr number Buffer number
+local function queue_refresh(bufnr)
+	if _refresh_queued[bufnr] then
+		return
+	end
+	_refresh_queued[bufnr] = true
+	vim.schedule(function()
+		_refresh_queued[bufnr] = nil
+		M.refresh_rails(bufnr)
+	end)
+end
+
+--- Redraw a buffer's rails after every change to its text, undo included.
+--- The tracking extmark follows edits on its own, but the per-line rail
+--- signs don't resize with it. Detaches once the buffer has no ranges.
+---@param bufnr number Buffer number
+local function ensure_attached(bufnr)
+	if _attached[bufnr] then
+		return
+	end
+	_attached[bufnr] = vim.api.nvim_buf_attach(bufnr, false, {
+		on_lines = function()
+			if not _rails[bufnr] then
+				return true
+			end
+			queue_refresh(bufnr)
+		end,
+		on_reload = function()
+			queue_refresh(bufnr)
+		end,
+		on_detach = function()
+			_attached[bufnr] = nil
+			_rails[bufnr] = nil
+		end,
+	}) or nil
+end
+
 --- Start drawing the rail for a range's tracking extmark.
 ---@param bufnr number Buffer number
 ---@param extmark_id number The range's tracking extmark ID
@@ -652,6 +698,7 @@ local function register_range(bufnr, extmark_id)
 		_rails[bufnr] = state
 	end
 	state.ranges[extmark_id] = true
+	ensure_attached(bufnr)
 	M.refresh_rails(bufnr)
 end
 
