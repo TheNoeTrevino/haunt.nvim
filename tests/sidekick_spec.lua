@@ -264,5 +264,23 @@ describe("haunt.sidekick", function()
 			assert.is_truthy(type(result) == "string")
 			assert.is_truthy(result:match("test%.lua :L10"))
 		end)
+
+		it("writes a range as :L45-L48 and a single line as :L45", function()
+			local mock_bookmarks = {
+				{ file = cwd .. "/range.lua", line = 45, end_line = 48, note = "block", id = "r" },
+				{ file = cwd .. "/single.lua", line = 45, note = "one", id = "s" },
+			}
+
+			local original_get_bookmarks = api.get_bookmarks
+			api.get_bookmarks = function()
+				return vim.deepcopy(mock_bookmarks)
+			end
+
+			local result = sidekick.get_locations()
+
+			api.get_bookmarks = original_get_bookmarks
+
+			assert.are.equal('- @/range.lua :L45-L48 - "block"\n- @/single.lua :L45 - "one"', result)
+		end)
 	end)
 end)

@@ -36,7 +36,7 @@ end
 --- Get bookmark locations formatted for sidekick.nvim.
 ---
 --- Returns bookmarks in sidekick-compatible format:
---- `- @/{path} :L{line} - "{note}"`
+--- `- @/{path} :L{line} - "{note}"`, or `:L{line}-L{end_line}` for a range
 ---
 ---@param opts? SidekickOpts Options for filtering and formatting
 ---@return string # Formatted bookmark locations, one per line
@@ -101,6 +101,10 @@ function M.get_locations(opts)
 		:map(function(bookmark)
 			local relative_path = to_relative_path(bookmark.file)
 			local line_str = string.format("- @/%s :L%d", relative_path, bookmark.line)
+			-- Same range form sidekick.nvim writes for a line range
+			if bookmark.end_line then
+				line_str = line_str .. string.format("-L%d", bookmark.end_line)
+			end
 
 			-- Append annotation if requested and exists
 			if append_annotations and bookmark.note and bookmark.note ~= "" then
