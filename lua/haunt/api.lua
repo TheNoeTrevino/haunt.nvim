@@ -173,7 +173,7 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 	local was_shown = bookmark.annotation_extmark_id ~= nil
 
 	bookmark.note = new_note
-	display.render_note(bufnr, bookmark, line)
+	display.render_note(bufnr, bookmark)
 
 	-- Save to persistence
 	local save_ok = store.save()
@@ -181,7 +181,7 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 		-- Rollback
 		bookmark.note = old_note
 		if was_shown then
-			display.render_note(bufnr, bookmark, line)
+			display.render_note(bufnr, bookmark)
 		else
 			display.clear_note(bufnr, bookmark)
 		end
@@ -251,7 +251,7 @@ function M.toggle_annotation()
 		display.clear_note(bufnr, existing_bookmark)
 		visible = false
 	else
-		display.render_note(bufnr, existing_bookmark, line)
+		display.render_note(bufnr, existing_bookmark)
 		visible = true
 	end
 
@@ -285,6 +285,7 @@ function M.toggle_all_lines()
 
 	_annotations_visible = not _annotations_visible
 
+	-- Synced, so each bookmark.line is where its extmark sits now
 	local bookmarks = store.get_all_raw()
 	local toggled_count = 0
 	for _, bookmark in ipairs(bookmarks) do
@@ -297,18 +298,8 @@ function M.toggle_all_lines()
 			goto continue
 		end
 
-		-- get line from extmark, persistence can become ood
-		local current_line = nil
-		if bookmark.extmark_id then
-			current_line = display.get_extmark_line(bufnr, bookmark.extmark_id)
-		end
-		if not current_line then -- fallback
-			current_line = bookmark.line
-		end
-
 		-- if line is gone, move on
-		local line_count = vim.api.nvim_buf_line_count(bufnr)
-		if current_line < 1 or current_line > line_count then
+		if bookmark.line > vim.api.nvim_buf_line_count(bufnr) then
 			goto continue
 		end
 
@@ -317,8 +308,8 @@ function M.toggle_all_lines()
 			-- Only redraw if the note is missing or sits on the wrong line
 			local annotation_line = bookmark.annotation_extmark_id
 				and display.get_extmark_line(bufnr, bookmark.annotation_extmark_id)
-			if annotation_line ~= current_line then
-				display.render_note(bufnr, bookmark, current_line)
+			if annotation_line ~= bookmark.line then
+				display.render_note(bufnr, bookmark)
 			end
 		else
 			display.clear_note(bufnr, bookmark)
@@ -1064,6 +1055,7 @@ function M.refresh_above_annotations()
 		return
 	end
 
+	-- Synced, so each bookmark.line is where its extmark sits now
 	local bookmarks = store.get_all_raw()
 	for _, bookmark in ipairs(bookmarks) do
 		if not bookmark.note or not bookmark.annotation_extmark_id then
@@ -1075,20 +1067,11 @@ function M.refresh_above_annotations()
 			goto continue
 		end
 
-		local current_line = nil
-		if bookmark.extmark_id then
-			current_line = display.get_extmark_line(bufnr, bookmark.extmark_id)
-		end
-		if not current_line then
-			current_line = bookmark.line
-		end
-
-		local line_count = vim.api.nvim_buf_line_count(bufnr)
-		if current_line < 1 or current_line > line_count then
+		if bookmark.line > vim.api.nvim_buf_line_count(bufnr) then
 			goto continue
 		end
 
-		display.render_note(bufnr, bookmark, current_line)
+		display.render_note(bufnr, bookmark)
 
 		::continue::
 	end

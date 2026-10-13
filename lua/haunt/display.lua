@@ -13,7 +13,7 @@
 ---@field clear_buffer_signs fun(bufnr: number): boolean
 ---@field place_sign fun(bufnr: number, line: number, sign_id: number)
 ---@field unplace_sign fun(bufnr: number, sign_id: number)
----@field render_note fun(bufnr: number, bookmark: Bookmark, line?: number): number|nil
+---@field render_note fun(bufnr: number, bookmark: Bookmark): number|nil
 ---@field clear_note fun(bufnr: number, bookmark: Bookmark)
 ---@field render_bookmark fun(bufnr: number, bookmark: Bookmark, show_note: boolean): boolean
 ---@field clear_bookmark fun(bufnr: number, bookmark: Bookmark)
@@ -606,19 +606,18 @@ function M.clear_note(bufnr, bookmark)
 	end
 end
 
---- Draw a bookmark's annotation, replacing any it already has
+--- Draw a bookmark's annotation on bookmark.line, replacing any it already has
 --- Does nothing beyond clearing when the bookmark has no note.
 ---@param bufnr number Buffer number
 ---@param bookmark Bookmark The bookmark whose annotation to draw
----@param line? number 1-based line to draw on (default: bookmark.line)
 ---@return number|nil extmark_id The annotation extmark ID, or nil if nothing was drawn
-function M.render_note(bufnr, bookmark, line)
+function M.render_note(bufnr, bookmark)
 	M.clear_note(bufnr, bookmark)
 	if not bookmark.note then
 		return nil
 	end
 
-	local ok, extmark_id = pcall(M.show_annotation, bufnr, line or bookmark.line, bookmark.note)
+	local ok, extmark_id = pcall(M.show_annotation, bufnr, bookmark.line, bookmark.note)
 	bookmark.annotation_extmark_id = ok and extmark_id or nil
 	return bookmark.annotation_extmark_id
 end

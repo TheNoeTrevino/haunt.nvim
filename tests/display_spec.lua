@@ -698,7 +698,8 @@ describe("haunt.display", function()
 			local bookmark = persistence.create_bookmark("test.lua", 2, "note")
 			display.render_bookmark(bufnr, bookmark, true)
 
-			display.render_note(bufnr, bookmark, 3)
+			bookmark.line = 3
+			display.render_note(bufnr, bookmark)
 
 			assert.are.equal(2, mark_count())
 			assert.are.equal(3, display.get_extmark_line(bufnr, bookmark.annotation_extmark_id))
