@@ -48,33 +48,8 @@ local function restore_bookmark_display(bufnr, bookmark, annotations_visible)
 		return
 	end
 
-	-- Clean up old extmark if it exists to prevent orphaning
-	if bookmark.extmark_id then
-		display.delete_bookmark_mark(bufnr, bookmark.extmark_id)
-		display.unplace_sign(bufnr, bookmark.extmark_id)
-	end
-
-	-- Clean up old annotation extmark if it exists
-	if bookmark.annotation_extmark_id then
-		display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
-	end
-
-	-- Create extmark for line tracking
-	local extmark_id = display.set_bookmark_mark(bufnr, bookmark)
-	if not extmark_id then
-		return
-	end
-
-	bookmark.extmark_id = extmark_id
-
-	-- Place sign
-	display.place_sign(bufnr, bookmark.line, extmark_id)
-
-	-- Show annotation if it exists and global visibility is enabled
-	if bookmark.note and annotations_visible then
-		local annotation_extmark_id = display.show_annotation(bufnr, bookmark.line, bookmark.note)
-		bookmark.annotation_extmark_id = annotation_extmark_id
-	end
+	-- Clears any old visuals first, so nothing is orphaned
+	display.render_bookmark(bufnr, bookmark, annotations_visible)
 end
 
 --- Restore bookmark visuals for a specific buffer.
