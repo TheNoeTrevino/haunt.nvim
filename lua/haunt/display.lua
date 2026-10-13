@@ -18,6 +18,7 @@
 ---@field render_bookmark fun(bufnr: number, bookmark: Bookmark, show_note: boolean): boolean
 ---@field clear_bookmark fun(bufnr: number, bookmark: Bookmark)
 ---@field refresh_rails fun(bufnr: number)
+---@field set_rails_hidden fun(hidden: boolean)
 
 ---@type DisplayModule
 ---@diagnostic disable-next-line: missing-fields
@@ -560,6 +561,10 @@ end
 ---@type table<number, HauntRailState>
 local _rails = {}
 
+--- True while all annotations are toggled off, which hides every rail.
+---@type boolean
+local _rails_hidden = false
+
 --- Remove the rail signs drawn in a buffer.
 ---@param bufnr number Buffer number
 ---@param state HauntRailState
@@ -579,6 +584,9 @@ end
 ---@return {[1]: number, [2]: number}[] spans
 ---@return string key Identifies the returned spans, to skip redundant redraws
 local function visible_spans(bufnr, state, leaving)
+	if _rails_hidden then
+		return {}, "hidden"
+	end
 	if state.cfg.reveal ~= "cursor" then
 		return state.spans, "all"
 	end
@@ -793,6 +801,17 @@ local function ensure_attached(bufnr)
 			_rails[bufnr] = nil
 		end,
 	}) or nil
+end
+
+--- Hide or show every rail, as all annotations are toggled off or on.
+--- Ranges keep following edits while hidden, so showing them again draws
+--- them where they are now.
+---@param hidden boolean True to hide the rails
+function M.set_rails_hidden(hidden)
+	_rails_hidden = hidden
+	for bufnr in pairs(_rails) do
+		M.refresh_rails(bufnr)
+	end
 end
 
 --- Start drawing the rail for a range's tracking extmark.

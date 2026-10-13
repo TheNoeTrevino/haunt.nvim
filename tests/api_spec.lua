@@ -1325,11 +1325,6 @@ describe("haunt.api", function()
 			assert.are.same({}, rail())
 		end)
 
-		it("hiding all annotations keeps the rail, like the sign", function()
-			assert.is_false(api.toggle_all_lines())
-			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
-		end)
-
 		--- Let the queued rail redraw run: it was scheduled before this callback.
 		local function settle()
 			local done = false
@@ -1402,6 +1397,39 @@ describe("haunt.api", function()
 			vim.api.nvim_buf_set_lines(bufnr, 5, 5, false, { "b" })
 			settle()
 			assert.are.same({ [6] = "│", [7] = "│", [8] = "│", [9] = "│", [10] = "╰" }, rail())
+		end)
+
+		it("hiding all annotations hides the rail", function()
+			assert.is_false(api.toggle_all_lines())
+			assert.are.same({}, rail())
+		end)
+
+		it("hides the rail of a range without a note", function()
+			local bare = require("haunt.persistence").create_bookmark(test_file, 10, nil, 11)
+			display.render_bookmark(bufnr, bare, false)
+			api.toggle_all_lines()
+			assert.are.same({}, rail())
+		end)
+
+		it("showing all annotations again redraws the rail", function()
+			api.toggle_all_lines()
+			assert.is_true(api.toggle_all_lines())
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("keeps the rail hidden through edits and shows it where the range is now", function()
+			api.toggle_all_lines()
+			edit(6, "dd")
+			assert.are.same({}, rail())
+
+			api.toggle_all_lines()
+			assert.are.same({ [6] = "│", [7] = "╰" }, rail())
+		end)
+
+		it("keeps the rail hidden through a reload", function()
+			api.toggle_all_lines()
+			api.reload()
+			assert.are.same({}, rail())
 		end)
 
 		it("reload draws the rail again on the restored buffer", function()

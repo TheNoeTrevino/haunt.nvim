@@ -297,6 +297,8 @@ function M.toggle_all_lines()
 	---@cast hooks -nil
 
 	_annotations_visible = not _annotations_visible
+	-- Every range, with a note or not, hides its rail along with the notes
+	display.set_rails_hidden(not _annotations_visible)
 
 	-- Synced, so each bookmark.line is where its extmark sits now
 	local bookmarks = store.get_all_raw()
@@ -1145,8 +1147,10 @@ end
 function M._reset_for_testing()
 	ensure_modules()
 	---@cast store -nil
+	---@cast display -nil
 	store._reset_for_testing()
 	_annotations_visible = true
+	display.set_rails_hidden(false)
 	_absolute_notified = false
 end
 
