@@ -51,11 +51,10 @@ local commands = {
 
 for name, info in pairs(commands) do
 	vim.api.nvim_create_user_command(name, function(opts)
-		if info.range and opts.range > 0 then
+		if info.has_args then
 			local text = opts.args ~= "" and opts.args or nil
-			require("haunt.api")[info.fn](text, { line1 = opts.line1, line2 = opts.line2 })
-		elseif info.has_args and opts.args ~= "" then
-			require("haunt.api")[info.fn](opts.args)
+			local range = (info.range and opts.range > 0) and { line1 = opts.line1, line2 = opts.line2 } or nil
+			require("haunt.api")[info.fn](text, range)
 		elseif info.args then
 			require("haunt.api")[info.fn](info.args)
 		else
