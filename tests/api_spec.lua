@@ -1030,6 +1030,19 @@ describe("haunt.api", function()
 			end)
 		end
 
+		--- The rail signs in the buffer, keyed by 1-based line.
+		---@return table<number, string> rows
+		local function rail()
+			local rows = {}
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			for _, mark in ipairs(marks) do
+				if mark[4].sign_text then
+					rows[mark[2] + 1] = vim.trim(mark[4].sign_text)
+				end
+			end
+			return rows
+		end
+
 		before_each(function()
 			local lines = {}
 			for i = 1, 90 do
@@ -1097,6 +1110,12 @@ describe("haunt.api", function()
 			local start_line, end_line = display.get_extmark_range(bufnr, range.extmark_id)
 			assert.are.equal(70, start_line)
 			assert.are.equal(85, end_line)
+
+			-- The rail is redrawn to the new end
+			local rows = rail()
+			assert.are.equal("│", rows[80])
+			assert.are.equal("╰", rows[85])
+			assert.is_nil(rows[86])
 		end)
 
 		it("visual annotate on 72-78 creates a range 72-78", function()
@@ -1167,6 +1186,7 @@ describe("haunt.api", function()
 			local range = by_note("range")
 			assert.are.equal(70, range.line)
 			assert.is_nil(range.end_line)
+			assert.are.same({}, rail(), "a single has no rail")
 		end)
 
 		it("keeps undo restoring a range after its note is edited", function()
