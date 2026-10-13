@@ -1169,6 +1169,35 @@ describe("haunt.api", function()
 			assert.is_nil(range.end_line)
 		end)
 
+		it("keeps undo restoring a range after its note is edited", function()
+			vim.cmd("let &undolevels = &undolevels")
+			vim.api.nvim_win_set_cursor(0, { 78, 0 })
+			vim.cmd("normal! 3dd")
+			assert.are.equal(77, by_note("range").end_line)
+
+			vim.api.nvim_win_set_cursor(0, { 70, 0 })
+			api.annotate("range edited")
+			vim.cmd("normal! u")
+
+			local range = by_note("range edited")
+			assert.are.equal(70, range.line)
+			assert.are.equal(80, range.end_line)
+		end)
+
+		it("keeps undo restoring a collapsed range after its note is edited", function()
+			api.annotate("small", { line1 = 20, line2 = 22 })
+			vim.cmd("let &undolevels = &undolevels")
+			vim.api.nvim_win_set_cursor(0, { 21, 0 })
+			vim.cmd("normal! 2dd")
+			assert.is_nil(by_note("small").end_line)
+
+			vim.api.nvim_win_set_cursor(0, { 20, 0 })
+			api.annotate("small edited")
+			vim.cmd("normal! u")
+
+			assert.are.equal(22, by_note("small edited").end_line)
+		end)
+
 		it("rolls back a resize when save fails", function()
 			local store = require("haunt.store")
 			local original_save = store.save

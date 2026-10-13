@@ -168,33 +168,34 @@ local function update_bookmark_annotation(bufnr, bookmark, new_note, resize_to)
 	---@cast store -nil
 	---@cast display -nil
 	---@cast hooks -nil
+	---@cast persistence -nil
 
-	local old_note = bookmark.note
-	local old_end_line = bookmark.end_line
+	local snapshot = { note = bookmark.note, end_line = bookmark.end_line }
 	local was_shown = bookmark.annotation_extmark_id ~= nil
 
-	bookmark.note = new_note
-	if resize_to then
-		-- Redraw the tracking extmark so it tracks the new end
-		bookmark.end_line = resize_to > bookmark.line and resize_to or nil
-		display.render_bookmark(bufnr, bookmark, true)
-	else
-		display.render_note(bufnr, bookmark)
-	end
-
-	-- Save to persistence
-	local save_ok = store.save()
-	if not save_ok then
-		-- Rollback
-		bookmark.note = old_note
+	-- Only a resize redraws the tracking extmark, so it tracks the new end. A
+	-- note edit must keep it: a fresh extmark would lose the end that undo
+	-- restores after a range is shrunk or collapsed.
+	---@param show_note boolean
+	local function render(show_note)
 		if resize_to then
-			bookmark.end_line = old_end_line
-			display.render_bookmark(bufnr, bookmark, was_shown)
-		elseif was_shown then
+			display.render_bookmark(bufnr, bookmark, show_note)
+		elseif show_note then
 			display.render_note(bufnr, bookmark)
 		else
 			display.clear_note(bufnr, bookmark)
 		end
+	end
+
+	bookmark.note = new_note
+	if resize_to then
+		bookmark.end_line = persistence.normalize_end_line(bookmark.line, resize_to)
+	end
+	render(true)
+
+	if not store.save() then
+		bookmark.note, bookmark.end_line = snapshot.note, snapshot.end_line
+		render(was_shown)
 
 		vim.notify("haunt.nvim: Failed to save bookmarks after annotation update", vim.log.levels.ERROR)
 		return false
@@ -205,7 +206,7 @@ local function update_bookmark_annotation(bufnr, bookmark, new_note, resize_to)
 		bufnr = bufnr,
 		file = bookmark.file,
 		line = bookmark.line,
-		old_note = old_note,
+		old_note = snapshot.note,
 		new_note = new_note,
 	})
 
