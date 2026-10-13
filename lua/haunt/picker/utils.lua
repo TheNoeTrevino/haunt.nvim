@@ -173,17 +173,8 @@ function M.handle_edit_annotation(ctx)
 		return
 	end
 
-	-- Open the file in a buffer if not already open
-	local bufnr = vim.fn.bufnr(item.file)
-	if bufnr == -1 then
-		bufnr = vim.fn.bufadd(item.file)
-		vim.fn.bufload(bufnr)
-	end
-
-	-- Execute annotate in the buffer context
-	M.with_buffer_context(bufnr, item.line, function()
-		api_module.annotate(annotation)
-	end)
+	-- By id, not by line: several bookmarks can start on one line
+	api_module.annotate_by_id(item.id, annotation)
 
 	-- Reopen the picker with updated data
 	ctx.reopen_picker()

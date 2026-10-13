@@ -296,6 +296,45 @@ describe("haunt.picker.utils", function()
 			assert.are.equal("Updated annotation", updated_bookmarks[1].note)
 		end)
 
+		it("edits the picked bookmark when two start on one line", function()
+			helpers.cleanup_buffer(bufnr, test_file)
+			bufnr, test_file = helpers.create_test_buffer({ "1", "2", "3", "4", "5", "6", "7", "8", "9" })
+			api.annotate("range", { line1 = 3, line2 = 8 })
+			vim.api.nvim_win_set_cursor(0, { 4, 0 })
+			api.annotate("single")
+			-- Deleting line 3 stacks both bookmarks on line 3
+			vim.api.nvim_win_set_cursor(0, { 3, 0 })
+			vim.cmd("normal! dd")
+
+			local updates = {}
+			require("haunt.hooks").on_update(function(ctx)
+				table.insert(updates, ctx.new_note)
+			end)
+
+			local range_item = vim.iter(utils.build_picker_items(api.get_bookmarks())):find(function(item)
+				return item.note == "range"
+			end)
+			vim.fn.input = function()
+				return "range edited"
+			end
+
+			utils.handle_edit_annotation({
+				item = range_item,
+				close_picker = function() end,
+				reopen_picker = function() end,
+			})
+
+			local notes = vim
+				.iter(api.get_bookmarks())
+				:map(function(bookmark)
+					return bookmark.note
+				end)
+				:totable()
+			table.sort(notes)
+			assert.are.same({ "range edited", "single" }, notes)
+			assert.are.same({ "range edited" }, updates)
+		end)
+
 		it("reopens picker without saving when cancelled with no existing annotation", function()
 			-- Create a mock item with no annotation (simulating a bookmark without note)
 			local mock_item = {

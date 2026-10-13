@@ -24,6 +24,7 @@
 ---@field next fun(): boolean
 ---@field prev fun(): boolean
 ---@field delete_by_id fun(bookmark_id: string): boolean
+---@field annotate_by_id fun(bookmark_id: string, text: string): boolean
 ---@field to_quickfix fun(opts?: QuickfixOpts): boolean
 ---@field yank_locations fun(opts?: SidekickOpts): boolean
 ---@field cleanup_buffer_tracking fun(bufnr: number)
@@ -751,6 +752,51 @@ function M.delete_by_id(bookmark_id)
 	})
 
 	return true
+end
+
+--- Set the annotation of a bookmark by its unique ID.
+---
+--- Edits that exact bookmark without moving the cursor (e.g., from the
+--- picker), so it stays right when several bookmarks start on one line.
+--- Empty text cancels the operation.
+---
+---@param bookmark_id string The unique ID of the bookmark to edit
+---@param text string The new annotation text
+---@return boolean success True if the annotation was updated
+---
+---@usage >lua
+---   local bookmarks = require('haunt.api').get_bookmarks()
+---   if #bookmarks > 0 then
+---     require('haunt.api').annotate_by_id(bookmarks[1].id, "revisit this")
+---   end
+--- <
+function M.annotate_by_id(bookmark_id, text)
+	ensure_modules()
+	---@cast store -nil
+
+	require("haunt")._ensure_initialized()
+
+	if text == "" then
+		return false
+	end
+
+	local bookmark = store.find_by_id(bookmark_id)
+	if not bookmark then
+		vim.notify("haunt.nvim: Bookmark not found", vim.log.levels.WARN)
+		return false
+	end
+
+	local bufnr, err = utils.ensure_buffer_for_file(bookmark.file)
+	if not bufnr then
+		vim.notify("haunt.nvim: " .. (err or "unknown error"), vim.log.levels.ERROR)
+		return false
+	end
+
+	local success = update_bookmark_annotation(bufnr, bookmark, text)
+	if success then
+		vim.notify("haunt.nvim: Annotation updated", vim.log.levels.INFO)
+	end
+	return success
 end
 
 ---@private
