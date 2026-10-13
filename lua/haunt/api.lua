@@ -94,53 +94,6 @@ local function ensure_modules()
 	end
 end
 
---- Clean up all visual elements for a bookmark
---- Removes extmarks, signs, and annotations from the buffer
----@param bufnr number Buffer number
----@param bookmark Bookmark The bookmark whose visuals should be cleaned up
-local function cleanup_bookmark_visuals(bufnr, bookmark)
-	ensure_modules()
-	---@cast display -nil
-
-	-- Delete annotation extmark if it exists
-	if bookmark.annotation_extmark_id then
-		display.hide_annotation(bufnr, bookmark.annotation_extmark_id)
-	end
-
-	if bookmark.extmark_id then
-		-- Delete the extmark
-		display.delete_bookmark_mark(bufnr, bookmark.extmark_id)
-
-		-- Unplace the sign
-		display.unplace_sign(bufnr, bookmark.extmark_id)
-	end
-end
-
---- Re-create visual elements for a bookmark whose previous visuals were torn down.
---- Used by delete-path rollback when save fails: the bookmark is being put back
---- into the store, and the user's screen needs the sign/extmark/annotation back.
----@param bufnr number Buffer number
----@param bookmark Bookmark The bookmark to re-render. Its extmark/annotation IDs are reassigned.
-local function recreate_bookmark_visuals(bufnr, bookmark)
-	ensure_modules()
-	---@cast display -nil
-
-	local new_extmark_id = display.set_bookmark_mark(bufnr, bookmark)
-	if not new_extmark_id then
-		bookmark.extmark_id = nil
-		bookmark.annotation_extmark_id = nil
-		return
-	end
-	bookmark.extmark_id = new_extmark_id
-	display.place_sign(bufnr, bookmark.line, new_extmark_id)
-
-	if bookmark.note and _annotations_visible then
-		bookmark.annotation_extmark_id = display.show_annotation(bufnr, bookmark.line, bookmark.note)
-	else
-		bookmark.annotation_extmark_id = nil
-	end
-end
-
 --- Create a bookmark with visual elements and persist it
 --- This is a helper function to avoid code duplication between toggle_annotation() and annotate()
 ---@param bufnr number Buffer number
@@ -175,24 +128,11 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line
 		end
 	end
 
-	-- Set extmark for line tracking
-	local extmark_id = display.set_bookmark_mark(bufnr, new_bookmark)
-	if not extmark_id then
+	-- A new note is always shown, even while annotations are hidden
+	if not display.render_bookmark(bufnr, new_bookmark, true) then
 		vim.notify("haunt.nvim: Failed to create extmark", vim.log.levels.ERROR)
 		return false
 	end
-
-	-- Store extmark_id in bookmark
-	new_bookmark.extmark_id = extmark_id
-
-	-- Show annotation as virtual text if note exists
-	if note then
-		local annotation_extmark_id = display.show_annotation(bufnr, line, note)
-		new_bookmark.annotation_extmark_id = annotation_extmark_id
-	end
-
-	-- Place sign (using extmark_id as sign_id)
-	display.place_sign(bufnr, line, extmark_id)
 
 	-- Add to store
 	store.add_bookmark(new_bookmark)
@@ -202,12 +142,7 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line
 	if not save_ok then
 		-- Rollback: remove from store and clean up all visual elements
 		store.remove_bookmark(new_bookmark)
-
-		if new_bookmark.annotation_extmark_id then
-			display.hide_annotation(bufnr, new_bookmark.annotation_extmark_id)
-		end
-		display.delete_bookmark_mark(bufnr, extmark_id)
-		display.unplace_sign(bufnr, extmark_id)
+		display.clear_bookmark(bufnr, new_bookmark)
 		vim.notify("haunt.nvim: Failed to save bookmarks", vim.log.levels.ERROR)
 		return false
 	end
@@ -473,7 +408,7 @@ function M.delete()
 		return false
 	end
 
-	cleanup_bookmark_visuals(bufnr, existing_bookmark)
+	display.clear_bookmark(bufnr, existing_bookmark)
 	store.remove_bookmark(existing_bookmark)
 
 	-- Save to persistence
@@ -482,7 +417,7 @@ function M.delete()
 		-- Rollback: re-add to store and re-render visuals so the user's view
 		-- still matches what's on disk. Mirrors create_and_persist_bookmark.
 		store.add_bookmark(existing_bookmark)
-		recreate_bookmark_visuals(bufnr, existing_bookmark)
+		display.render_bookmark(bufnr, existing_bookmark, _annotations_visible)
 		vim.notify("haunt.nvim: Failed to save bookmarks after removal", vim.log.levels.ERROR)
 		return false
 	end
@@ -668,7 +603,7 @@ function M.clear()
 	local bufnr = vim.api.nvim_get_current_buf()
 
 	for _, bookmark in ipairs(file_bookmarks) do
-		cleanup_bookmark_visuals(bufnr, bookmark)
+		display.clear_bookmark(bufnr, bookmark)
 	end
 
 	-- Clear from store
@@ -746,7 +681,7 @@ function M.clear_all()
 		end
 
 		for _, bookmark in ipairs(file_bookmarks) do
-			cleanup_bookmark_visuals(bufnr, bookmark)
+			display.clear_bookmark(bufnr, bookmark)
 		end
 
 		::continue::
@@ -816,13 +751,13 @@ function M.delete_by_id(bookmark_id)
 		return false
 	end
 
-	cleanup_bookmark_visuals(bufnr, bookmark)
+	display.clear_bookmark(bufnr, bookmark)
 	store.remove_bookmark(bookmark)
 
 	local save_ok = store.save()
 	if not save_ok then
 		store.add_bookmark(bookmark)
-		recreate_bookmark_visuals(bufnr, bookmark)
+		display.render_bookmark(bufnr, bookmark, _annotations_visible)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false
 	end
