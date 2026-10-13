@@ -284,6 +284,111 @@ describe("haunt.hooks", function()
 		end)
 	end)
 
+	describe("range end_line in payloads", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "1", "2", "3", "4", "5", "6" })
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("create carries end_line for a range and nil for a single line", function()
+			local seen = {}
+			hooks.on_create(function(ctx)
+				table.insert(seen, ctx)
+			end)
+
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("single")
+
+			assert.are.equal(2, seen[1].line)
+			assert.are.equal(4, seen[1].end_line)
+			assert.are.equal(6, seen[2].line)
+			assert.is_nil(seen[2].end_line)
+		end)
+
+		it("update carries the old and new end_line on a resize", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			local seen = {}
+			hooks.on_update(function(ctx)
+				table.insert(seen, ctx)
+			end)
+
+			api.annotate("bigger", { line1 = 2, line2 = 5 })
+			api.annotate("collapsed", { line1 = 2, line2 = 2 })
+
+			assert.are.equal(4, seen[1].old_end_line)
+			assert.are.equal(5, seen[1].new_end_line)
+			assert.are.equal(5, seen[1].end_line)
+			assert.are.equal(5, seen[2].old_end_line)
+			assert.is_nil(seen[2].new_end_line)
+			assert.is_nil(seen[2].end_line)
+		end)
+
+		it("update keeps end_line when only the note changes", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			local received
+			hooks.on_update(function(ctx)
+				received = ctx
+			end)
+
+			vim.api.nvim_win_set_cursor(0, { 2, 0 })
+			api.annotate("renamed")
+
+			assert.are.equal(4, received.old_end_line)
+			assert.are.equal(4, received.new_end_line)
+		end)
+
+		it("delete, toggle and navigation carry end_line", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("single")
+			local seen = {}
+			hooks.on_toggle(function(ctx)
+				seen.toggle = ctx
+			end)
+			hooks.on_navigation(function(ctx)
+				seen.navigation = ctx
+			end)
+			hooks.on_delete(function(ctx)
+				seen.delete = seen.delete or {}
+				table.insert(seen.delete, ctx)
+			end)
+
+			vim.api.nvim_win_set_cursor(0, { 3, 0 })
+			api.toggle_annotation()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.next()
+			api.clear()
+
+			assert.are.equal(4, seen.toggle.end_line)
+			assert.are.equal(2, seen.navigation.to_line)
+			assert.are.equal(4, seen.navigation.end_line)
+			local by_line = {}
+			for _, ctx in ipairs(seen.delete) do
+				by_line[ctx.line] = ctx
+			end
+			assert.are.equal(4, by_line[2].end_line)
+			assert.is_nil(by_line[6].end_line)
+		end)
+
+		it("delete_by_id carries end_line", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			local received
+			hooks.on_delete(function(ctx)
+				received = ctx
+			end)
+
+			api.delete_by_id(api.get_bookmarks()[1].id)
+
+			assert.are.equal(4, received.end_line)
+		end)
+	end)
+
 	describe("integration with navigation", function()
 		local bufnr, test_file
 

@@ -69,6 +69,7 @@ local function navigate_bookmark(direction)
 			direction = direction,
 			from_line = current_line,
 			to_line = bookmark.line,
+			end_line = bookmark.end_line,
 		})
 	end
 

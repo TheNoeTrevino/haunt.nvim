@@ -56,6 +56,7 @@
 ---@field bufnr number Buffer number where the bookmark was created
 ---@field file string Normalized absolute file path of the bookmarked file
 ---@field line number 1-based line number where the bookmark was placed
+---@field end_line number|nil 1-based last line of a range; nil for a single line
 
 --- Context passed to `on_delete` callbacks.
 --- Fired after a bookmark is successfully removed from the store and persisted.
@@ -68,6 +69,7 @@
 ---   whose file isn't loaded in any buffer.
 ---@field file string Normalized absolute file path of the deleted bookmark
 ---@field line number 1-based line number where the bookmark was located
+---@field end_line number|nil 1-based last line of a range; nil for a single line
 
 --- Context passed to `on_update` callbacks.
 --- Fired after a bookmark's annotation text is changed and persisted.
@@ -76,8 +78,11 @@
 ---@field bufnr number Buffer number where the bookmark exists
 ---@field file string Normalized absolute file path of the updated bookmark
 ---@field line number 1-based line number of the updated bookmark
+---@field end_line number|nil 1-based last line of a range; nil for a single line
 ---@field old_note string|nil The previous annotation text (nil if bookmark had no annotation)
 ---@field new_note string The new annotation text that was applied
+---@field old_end_line number|nil The last line before the update; nil if it was a single line
+---@field new_end_line number|nil The last line after the update; nil if it is a single line
 
 --- Context passed to `on_navigation` callbacks.
 --- Fired after jumping to a bookmark via `next()` or `prev()`.
@@ -88,6 +93,7 @@
 ---@field direction "next"|"prev" The navigation direction that was requested
 ---@field from_line number 1-based line number the cursor was on before the jump
 ---@field to_line number 1-based line number the cursor jumped to
+---@field end_line number|nil 1-based last line of the bookmark's range; nil for a single line
 
 --- Context passed to `on_toggle` callbacks.
 --- Fired after a single bookmark's annotation visibility is toggled.
@@ -96,6 +102,7 @@
 ---@field bufnr number Buffer number where the toggle occurred
 ---@field file string Normalized absolute file path of the toggled bookmark
 ---@field line number 1-based line number of the toggled bookmark
+---@field end_line number|nil 1-based last line of a range; nil for a single line
 ---@field visible boolean Whether the annotation is now visible (true = shown, false = hidden)
 
 --- Context passed to `on_toggle_all` callbacks.

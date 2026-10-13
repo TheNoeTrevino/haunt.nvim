@@ -153,6 +153,7 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line
 		bufnr = bufnr,
 		file = filepath,
 		line = line,
+		end_line = new_bookmark.end_line,
 	})
 
 	return true
@@ -207,8 +208,11 @@ local function update_bookmark_annotation(bufnr, bookmark, new_note, resize_to)
 		bufnr = bufnr,
 		file = bookmark.file,
 		line = bookmark.line,
+		end_line = bookmark.end_line,
 		old_note = snapshot.note,
 		new_note = new_note,
+		old_end_line = snapshot.end_line,
+		new_end_line = bookmark.end_line,
 	})
 
 	return true
@@ -273,6 +277,7 @@ function M.toggle_annotation()
 		bufnr = bufnr,
 		file = filepath,
 		line = existing_bookmark.line,
+		end_line = existing_bookmark.end_line,
 		visible = visible,
 	})
 
@@ -409,6 +414,7 @@ function M.delete()
 		bufnr = bufnr,
 		file = filepath,
 		line = existing_bookmark.line,
+		end_line = existing_bookmark.end_line,
 	})
 
 	vim.notify("haunt.nvim: Bookmark deleted", vim.log.levels.INFO)
@@ -603,6 +609,7 @@ function M.clear()
 				bufnr = bufnr,
 				file = bookmark.file,
 				line = bookmark.line,
+				end_line = bookmark.end_line,
 			})
 		end
 		local count = #file_bookmarks
@@ -690,6 +697,7 @@ function M.clear_all()
 					bufnr = bufnr ~= -1 and bufnr or nil,
 					file = bookmark.file,
 					line = bookmark.line,
+					end_line = bookmark.end_line,
 				})
 			end
 		end
@@ -752,6 +760,7 @@ function M.delete_by_id(bookmark_id)
 		bufnr = bufnr,
 		file = bookmark.file,
 		line = bookmark.line,
+		end_line = bookmark.end_line,
 	})
 
 	return true
