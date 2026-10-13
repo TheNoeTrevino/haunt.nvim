@@ -427,7 +427,7 @@ function M.set_bookmark_mark(bufnr, bookmark)
 	-- creep onto the next line. end_right_gravity=false keeps `o` on the
 	-- last line from absorbing the new line. end_row == line_count is
 	-- valid for a range that ends on the final line.
-	if bookmark.end_line and bookmark.end_line > bookmark.line then
+	if bookmark.end_line ~= nil then
 		opts.end_row = math.min(bookmark.end_line, line_count)
 		opts.end_col = 0
 		opts.end_right_gravity = false

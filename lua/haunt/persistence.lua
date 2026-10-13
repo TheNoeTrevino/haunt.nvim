@@ -31,6 +31,7 @@
 ---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
 ---@field create_bookmark fun(file: string, line: number, note?: string, end_line?: number): Bookmark|nil, string|nil
 ---@field is_valid_bookmark fun(bookmark: table): boolean
+---@field normalize_end_line fun(line: number, end_line: any): number|nil
 ---@field _build_serializable fun(bookmarks: Bookmark[], project_root?: string|nil): table[]
 
 ---@private
@@ -149,9 +150,7 @@ function M._build_serializable(bookmarks, project_root)
 		}
 
 		-- Only ranges carry end_line, so single-line entries keep their shape.
-		if bookmark.end_line and bookmark.end_line > bookmark.line then
-			entry.end_line = bookmark.end_line
-		end
+		entry.end_line = bookmark.end_line
 
 		local relative = nil
 		if project_root and not bookmark.absolute then
@@ -250,6 +249,8 @@ local function resolve_v2_bookmarks(bookmarks)
 	local warned_no_root = false
 
 	for _, bookmark in ipairs(bookmarks) do
+		bookmark.end_line = M.normalize_end_line(bookmark.line, bookmark.end_line)
+
 		if bookmark.absolute == true then
 			goto continue
 		end
@@ -354,6 +355,19 @@ function M.load_bookmarks(filepath)
 	return nil
 end
 
+--- The one rule for "is a range": a bookmark has an end_line only when it is
+--- a number past its first line. Anything else (nil, one line, garbage) is a
+--- single-line bookmark, so readers only need to test `end_line ~= nil`.
+---@param line number 1-based first line
+---@param end_line any Candidate 1-based last line
+---@return number|nil end_line The last line, or nil for a single-line bookmark
+function M.normalize_end_line(line, end_line)
+	if type(line) == "number" and type(end_line) == "number" and end_line > line then
+		return end_line
+	end
+	return nil
+end
+
 --- Generate a unique bookmark ID
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
@@ -393,15 +407,10 @@ function M.create_bookmark(file, line, note, end_line)
 		return nil, "end_line must be nil or a number >= line"
 	end
 
-	-- A one-line "range" is just a bookmark.
-	if end_line == line then
-		end_line = nil
-	end
-
 	return {
 		file = file,
 		line = line,
-		end_line = end_line,
+		end_line = M.normalize_end_line(line, end_line),
 		note = note,
 		id = generate_bookmark_id(file, line),
 		extmark_id = nil, -- Will be set by display layer
