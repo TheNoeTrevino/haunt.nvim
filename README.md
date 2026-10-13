@@ -299,7 +299,7 @@ You can explicitly choose your picker:
 
 ```lua
 return {
-  "TheNoeTrevino/haunt.nvim",
+  "https://git.thenoetrevino.com/noe.trevino/haunt.nvim",
   opts = {
     -- Choose your picker: "auto", "snacks", "telescope", or "fzf"
     picker = "auto",

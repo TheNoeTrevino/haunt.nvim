@@ -67,7 +67,7 @@ body:
 
         require("lazy.minit").repro({
           spec = {
-            { "TheNoeTrevino/haunt.nvim", opts = {} },
+            { "https://git.thenoetrevino.com/noe.trevino/haunt.nvim", opts = {} },
             -- add any other plugins here
           },
         })
