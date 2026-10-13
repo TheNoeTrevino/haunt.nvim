@@ -1015,6 +1015,137 @@ describe("haunt.api", function()
 		end
 	end)
 
+	-- Issue #108: the Cases table in docs/visual-annotations/priority.md.
+	-- Range 70-80, single on 75.
+	describe("nesting rules", function()
+		local bufnr, test_file
+		local original_input
+
+		--- Find a bookmark by its note.
+		---@param note string
+		---@return Bookmark|nil bookmark
+		local function by_note(note)
+			return vim.iter(api.get_bookmarks()):find(function(bookmark)
+				return bookmark.note == note
+			end)
+		end
+
+		before_each(function()
+			local lines = {}
+			for i = 1, 90 do
+				lines[i] = "line " .. i
+			end
+			bufnr, test_file = helpers.create_test_buffer(lines)
+			original_input = vim.fn.input
+
+			api.annotate("range", { line1 = 70, line2 = 80 })
+			vim.api.nvim_win_set_cursor(0, { 75, 0 })
+			api.annotate("single")
+			assert.are.equal(2, #api.get_bookmarks())
+		end)
+
+		after_each(function()
+			vim.fn.input = original_input
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("annotate on 70 edits the range", function()
+			vim.api.nvim_win_set_cursor(0, { 70, 0 })
+			api.annotate("range edited")
+
+			assert.are.equal(2, #api.get_bookmarks())
+			local range = by_note("range edited")
+			assert.are.equal(70, range.line)
+			assert.are.equal(80, range.end_line)
+		end)
+
+		it("annotate on 75 edits the single", function()
+			vim.api.nvim_win_set_cursor(0, { 75, 0 })
+			api.annotate("single edited")
+
+			assert.are.equal(2, #api.get_bookmarks())
+			assert.is_not_nil(by_note("range"))
+			assert.are.equal(75, by_note("single edited").line)
+		end)
+
+		it("annotate on 76 creates a single on 76", function()
+			vim.api.nvim_win_set_cursor(0, { 76, 0 })
+			api.annotate("new")
+
+			assert.are.equal(3, #api.get_bookmarks())
+			local new = by_note("new")
+			assert.are.equal(76, new.line)
+			assert.is_nil(new.end_line)
+		end)
+
+		it("visual annotate on 70-85 resizes the range to 70-85", function()
+			local prompted_with
+			vim.fn.input = function(opts)
+				prompted_with = opts.default
+				return "range resized"
+			end
+
+			assert.is_true(api.annotate(nil, { line1 = 70, line2 = 85 }))
+
+			assert.are.equal("range", prompted_with, "the prompt starts from the existing note")
+			assert.are.equal(2, #api.get_bookmarks())
+			local range = by_note("range resized")
+			assert.are.equal(70, range.line)
+			assert.are.equal(85, range.end_line)
+
+			-- The tracking extmark follows the new end
+			local start_line, end_line = display.get_extmark_range(bufnr, range.extmark_id)
+			assert.are.equal(70, start_line)
+			assert.are.equal(85, end_line)
+		end)
+
+		it("visual annotate on 72-78 creates a range 72-78", function()
+			api.annotate("inner", { line1 = 72, line2 = 78 })
+
+			assert.are.equal(3, #api.get_bookmarks())
+			local inner = by_note("inner")
+			assert.are.equal(72, inner.line)
+			assert.are.equal(78, inner.end_line)
+			assert.are.equal(80, by_note("range").end_line)
+		end)
+
+		it("next / prev stops at 70, then 75", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.next()
+			assert.are.equal(70, vim.api.nvim_win_get_cursor(0)[1])
+			api.next()
+			assert.are.equal(75, vim.api.nvim_win_get_cursor(0)[1])
+			api.prev()
+			assert.are.equal(70, vim.api.nvim_win_get_cursor(0)[1])
+		end)
+
+		it("resizing a range to one line makes it a single", function()
+			api.annotate("range", { line1 = 70, line2 = 70 })
+
+			local range = by_note("range")
+			assert.are.equal(70, range.line)
+			assert.is_nil(range.end_line)
+		end)
+
+		it("rolls back a resize when save fails", function()
+			local store = require("haunt.store")
+			local original_save = store.save
+			store.save = function()
+				return false
+			end
+
+			local ok = api.annotate("range resized", { line1 = 70, line2 = 85 })
+			store.save = original_save
+
+			assert.is_false(ok)
+			local range = by_note("range")
+			assert.is_not_nil(range, "the old note is restored")
+			assert.are.equal(80, range.end_line)
+			local _, end_line = display.get_extmark_range(bufnr, range.extmark_id)
+			assert.are.equal(80, end_line, "the tracking extmark is restored")
+		end)
+	end)
+
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix
 	-- path: get_quickfix_items read the module-level bookmarks table directly
 	-- instead of going through get_bookmarks(), so it never synced from

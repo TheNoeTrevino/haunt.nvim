@@ -74,6 +74,18 @@ describe("haunt user commands", function()
 			assert.are.equal(1, bookmarks[1].line)
 			assert.are.equal(2, bookmarks[1].end_line)
 		end)
+
+		it("edits a range's note without resizing it when no range is given", function()
+			vim.cmd("1,2HauntAnnotate range note")
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+			vim.cmd("HauntAnnotate edited")
+
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(1, #bookmarks)
+			assert.are.equal("edited", bookmarks[1].note)
+			assert.are.equal(2, bookmarks[1].end_line)
+		end)
 	end)
 
 	describe("HauntDelete", function()

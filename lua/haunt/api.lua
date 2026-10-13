@@ -157,30 +157,40 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line
 	return true
 end
 
---- Update an existing bookmark's annotation
+--- Update an existing bookmark's annotation, and optionally its range
 ---@param bufnr number Buffer number
----@param line number 1-based line number
 ---@param bookmark Bookmark The bookmark to update
 ---@param new_note string The new annotation text
+---@param resize_to? number New 1-based last line. Equal to the first line makes it a single line.
 ---@return boolean success True if bookmark was updated and persisted successfully
-local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
+local function update_bookmark_annotation(bufnr, bookmark, new_note, resize_to)
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
 	---@cast hooks -nil
 
 	local old_note = bookmark.note
+	local old_end_line = bookmark.end_line
 	local was_shown = bookmark.annotation_extmark_id ~= nil
 
 	bookmark.note = new_note
-	display.render_note(bufnr, bookmark)
+	if resize_to then
+		-- Redraw the tracking extmark so it tracks the new end
+		bookmark.end_line = resize_to > bookmark.line and resize_to or nil
+		display.render_bookmark(bufnr, bookmark, true)
+	else
+		display.render_note(bufnr, bookmark)
+	end
 
 	-- Save to persistence
 	local save_ok = store.save()
 	if not save_ok then
 		-- Rollback
 		bookmark.note = old_note
-		if was_shown then
+		if resize_to then
+			bookmark.end_line = old_end_line
+			display.render_bookmark(bufnr, bookmark, was_shown)
+		elseif was_shown then
 			display.render_note(bufnr, bookmark)
 		else
 			display.clear_note(bufnr, bookmark)
@@ -194,7 +204,7 @@ local function update_bookmark_annotation(bufnr, line, bookmark, new_note)
 		bookmark = bookmark,
 		bufnr = bufnr,
 		file = bookmark.file,
-		line = line,
+		line = bookmark.line,
 		old_note = old_note,
 		new_note = new_note,
 	})
@@ -433,13 +443,15 @@ end
 
 --- Add or edit an annotation for a bookmark.
 ---
---- If a bookmark exists at the current line, updates its annotation.
---- If no bookmark exists, creates a new bookmark with the annotation.
---- Empty input cancels the operation.
+--- If a bookmark starts on the current line, updates its annotation.
+--- Otherwise creates a new bookmark with the annotation, even inside an
+--- existing range. Empty input cancels the operation.
 ---
---- Called from Visual mode (any of v, V, CTRL-V), or given a `range`, the new
+--- Called from Visual mode (any of v, V, CTRL-V), or given a `range`, the
 --- bookmark covers every selected line: it is anchored at the first line and
 --- its `end_line` is saved with it. A range of one line is a normal bookmark.
+--- If a bookmark already starts on the first line, it is resized to the
+--- range instead of creating a new one.
 ---
 ---@param text? string Optional annotation text. If provided, skips the input prompt.
 ---@param range? HauntLineRange Optional line range. Defaults to the Visual selection, if any.
@@ -514,7 +526,8 @@ function M.annotate(text, range)
 	end
 
 	if existing_bookmark then
-		local success = update_bookmark_annotation(bufnr, line, existing_bookmark, annotation)
+		-- A range resizes the bookmark that starts on its first line
+		local success = update_bookmark_annotation(bufnr, existing_bookmark, annotation, end_line)
 		if success then
 			vim.notify("haunt.nvim: Annotation updated", vim.log.levels.INFO)
 		end
