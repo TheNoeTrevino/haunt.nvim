@@ -453,7 +453,6 @@ end
 ---@param extmark_id number The extmark ID to query
 ---@return number|nil line The current 1-based line number, or nil if extmark not found
 function M.get_extmark_line(bufnr, extmark_id)
-	-- Validate inputs
 	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: get_extmark_line: invalid buffer number", vim.log.levels.ERROR)
 		return nil
@@ -464,32 +463,18 @@ function M.get_extmark_line(bufnr, extmark_id)
 		return nil
 	end
 
-	-- Query extmark position
-	local ok, pos = pcall(vim.api.nvim_buf_get_extmark_by_id, bufnr, M.get_namespace(), extmark_id, {})
-
-	if not ok then
-		-- Extmark not found or other error
-		return nil
-	end
-
-	-- pos is a tuple {row, col} where row is 0-indexed
-	-- Convert to 1-based line number
-	if type(pos) == "table" and type(pos[1]) == "number" then
-		return pos[1] + 1
-	end
-
-	return nil
+	return (M.get_extmark_range(bufnr, extmark_id))
 end
 
 --- Get the current line range for an extmark
 --- For a range extmark (see set_bookmark_mark), the end sits at column 0 of the
 --- line after the range; an end anywhere else (e.g. after `J` joins the last
---- line into the next) still counts its own line. The end is clamped so it is
---- never before the start, which happens when the whole range is deleted.
+--- line into the next) still counts its own line. A range that no longer spans
+--- more than one line (e.g. every line was deleted) reports no end.
 ---@param bufnr number Buffer number where the extmark is located
 ---@param extmark_id number The extmark ID to query
 ---@return number|nil start_line The current 1-based first line, or nil if extmark not found
----@return number|nil end_line The current 1-based last line, or nil for a point extmark
+---@return number|nil end_line The current 1-based last line, or nil unless it is past the start
 function M.get_extmark_range(bufnr, extmark_id)
 	if not is_valid_buffer(bufnr) or type(extmark_id) ~= "number" then
 		return nil, nil
@@ -513,7 +498,11 @@ function M.get_extmark_range(bufnr, extmark_id)
 		end_line = end_line + 1
 	end
 
-	return start_line, math.max(end_line, start_line)
+	if end_line <= start_line then
+		return start_line, nil
+	end
+
+	return start_line, end_line
 end
 
 --- Delete a bookmark extmark

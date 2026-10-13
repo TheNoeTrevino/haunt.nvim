@@ -134,7 +134,7 @@ local function sync_lines_from_extmarks()
 		local cur, cur_end = display.get_extmark_range(bufnr, bm.extmark_id)
 		if cur then
 			bm.line = cur
-			bm.end_line = (cur_end and cur_end > cur) and cur_end or nil
+			bm.end_line = cur_end
 		end
 
 		::continue::

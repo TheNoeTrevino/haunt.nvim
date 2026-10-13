@@ -611,10 +611,10 @@ describe("haunt.display", function()
 			assert.are.same({ 5, 6 }, { display.get_extmark_range(bufnr, id) })
 		end)
 
-		it("never ends before it starts when every line is deleted", function()
+		it("reports no end once every line of the range is deleted", function()
 			local id = mark(2, 4)
 			vim.api.nvim_buf_set_lines(bufnr, 1, 4, false, {})
-			assert.are.same({ 2, 2 }, { display.get_extmark_range(bufnr, id) })
+			assert.are.same({ 2 }, { display.get_extmark_range(bufnr, id) })
 		end)
 	end)
 
