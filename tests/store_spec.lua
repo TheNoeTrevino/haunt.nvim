@@ -216,6 +216,29 @@ describe("haunt.store", function()
 		end)
 	end)
 
+	describe("add_bookmark at an index", function()
+		it("inserts at the index", function()
+			store.add_bookmark({ file = "/test.lua", line = 1, id = "a" })
+			store.add_bookmark({ file = "/test.lua", line = 2, id = "b" })
+			store.add_bookmark({ file = "/test.lua", line = 3, id = "c" }, 1)
+
+			local ids = vim
+				.iter(store.get_bookmarks())
+				:map(function(bookmark)
+					return bookmark.id
+				end)
+				:totable()
+			assert.are.same({ "c", "a", "b" }, ids)
+		end)
+
+		it("appends when the index is past the end", function()
+			store.add_bookmark({ file = "/test.lua", line = 1, id = "a" })
+			store.add_bookmark({ file = "/test.lua", line = 2, id = "b" }, 9)
+
+			assert.are.equal("b", store.get_bookmarks()[2].id)
+		end)
+	end)
+
 	describe("get_innermost_bookmark", function()
 		it("returns the bookmark starting on the line", function()
 			store.add_bookmark({ file = "/test.lua", line = 70, end_line = 80, id = "range" })

@@ -1198,6 +1198,42 @@ describe("haunt.api", function()
 			assert.are.equal(22, by_note("small edited").end_line)
 		end)
 
+		for _, case in ipairs({
+			{
+				name = "delete",
+				run = function()
+					vim.api.nvim_win_set_cursor(0, { 76, 0 })
+					return api.delete()
+				end,
+			},
+			{
+				name = "delete_by_id",
+				run = function()
+					return api.delete_by_id(by_note("range").id)
+				end,
+			},
+		}) do
+			it(case.name .. " puts the bookmark back in its place when save fails", function()
+				local store = require("haunt.store")
+				local original_save = store.save
+				store.save = function()
+					return false
+				end
+
+				local ok = case.run()
+				store.save = original_save
+
+				assert.is_false(ok)
+				local notes = vim
+					.iter(api.get_bookmarks())
+					:map(function(bookmark)
+						return bookmark.note
+					end)
+					:totable()
+				assert.are.same({ "range", "single" }, notes, "the older bookmark stays first")
+			end)
+		end
+
 		it("rolls back a resize when save fails", function()
 			local store = require("haunt.store")
 			local original_save = store.save

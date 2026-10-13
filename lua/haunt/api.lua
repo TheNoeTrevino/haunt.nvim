@@ -381,7 +381,7 @@ function M.delete()
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
 
 	-- The bookmark starting here, else the innermost range covering the line
-	local existing_bookmark, _ = store.get_innermost_bookmark(filepath, line)
+	local existing_bookmark, index = store.get_innermost_bookmark(filepath, line)
 	if not existing_bookmark then
 		vim.notify("haunt.nvim: No bookmark on this line", vim.log.levels.INFO)
 		return false
@@ -395,7 +395,8 @@ function M.delete()
 	if not save_ok then
 		-- Rollback: re-add to store and re-render visuals so the user's view
 		-- still matches what's on disk. Mirrors create_and_persist_bookmark.
-		store.add_bookmark(existing_bookmark)
+		-- Same index, so it stays the older one in a tie-break.
+		store.add_bookmark(existing_bookmark, index)
 		display.render_bookmark(bufnr, existing_bookmark, _annotations_visible)
 		vim.notify("haunt.nvim: Failed to save bookmarks after removal", vim.log.levels.ERROR)
 		return false
@@ -721,7 +722,7 @@ function M.delete_by_id(bookmark_id)
 	---@cast store -nil
 	---@cast hooks -nil
 
-	local bookmark = store.find_by_id(bookmark_id)
+	local bookmark, index = store.find_by_id(bookmark_id)
 	if not bookmark then
 		vim.notify("haunt.nvim: Bookmark not found", vim.log.levels.WARN)
 		return false
@@ -738,7 +739,7 @@ function M.delete_by_id(bookmark_id)
 
 	local save_ok = store.save()
 	if not save_ok then
-		store.add_bookmark(bookmark)
+		store.add_bookmark(bookmark, index)
 		display.render_bookmark(bufnr, bookmark, _annotations_visible)
 		vim.notify("haunt.nvim: Failed to save bookmarks after deletion", vim.log.levels.ERROR)
 		return false

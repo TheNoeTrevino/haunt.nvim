@@ -5,11 +5,11 @@
 ---@field reload fun()
 ---@field save fun(): boolean
 ---@field get_quickfix_items fun(opts?: QuickfixOpts): QuickfixItem[]
----@field find_by_id fun(bookmark_id: string): Bookmark|nil
+---@field find_by_id fun(bookmark_id: string): Bookmark|nil, number|nil
 ---@field get_bookmark_at_line fun(filepath: string, line: number): Bookmark|nil, number|nil
 ---@field get_innermost_bookmark fun(filepath: string, line: number): Bookmark|nil, number|nil
 ---@field get_sorted_bookmarks_for_file fun(filepath: string): Bookmark[]
----@field add_bookmark fun(bookmark: Bookmark)
+---@field add_bookmark fun(bookmark: Bookmark, index?: number)
 ---@field remove_bookmark fun(bookmark: Bookmark): boolean
 ---@field remove_bookmark_at_index fun(index: number): Bookmark|nil
 ---@field clear_file_bookmarks fun(filepath: string): Bookmark[]
@@ -161,11 +161,14 @@ end
 --- Find a bookmark by its ID
 ---@param bookmark_id string The unique ID of the bookmark to find
 ---@return Bookmark|nil bookmark The bookmark if found, nil otherwise
+---@return number|nil index The index of the bookmark in the bookmarks table
 function M.find_by_id(bookmark_id)
-	---@param bookmark Bookmark
-	return vim.iter(synced_bookmarks()):find(function(bookmark)
-		return bookmark.id == bookmark_id
-	end)
+	for i, bookmark in ipairs(synced_bookmarks()) do
+		if bookmark.id == bookmark_id then
+			return bookmark, i
+		end
+	end
+	return nil, nil
 end
 
 ---@private
@@ -463,10 +466,17 @@ function M.get_loaded_storage_path()
 end
 
 --- Add a bookmark to the store
+--- Appends it, or puts it back at `index` (e.g. when a removal is rolled
+--- back), since array order is the "older" tie-break between bookmarks.
 ---@param bookmark Bookmark The bookmark to add
-function M.add_bookmark(bookmark)
+---@param index? number 1-based position to insert at
+function M.add_bookmark(bookmark, index)
 	ensure_loaded()
-	table.insert(bookmarks, bookmark)
+	if index then
+		table.insert(bookmarks, math.min(index, #bookmarks + 1), bookmark)
+	else
+		table.insert(bookmarks, bookmark)
+	end
 end
 
 --- Remove a bookmark from the store
