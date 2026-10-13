@@ -7,6 +7,7 @@
 ---@field hide_annotation fun(bufnr: number, extmark_id: number): boolean
 ---@field set_bookmark_mark fun(bufnr: number, bookmark: Bookmark): number|nil
 ---@field get_extmark_line fun(bufnr: number, extmark_id: number): number|nil
+---@field get_extmark_range fun(bufnr: number, extmark_id: number): number|nil, number|nil
 ---@field delete_bookmark_mark fun(bufnr: number, extmark_id: number)
 ---@field clear_buffer_marks fun(bufnr: number)
 ---@field clear_buffer_signs fun(bufnr: number): boolean
@@ -419,9 +420,20 @@ function M.set_bookmark_mark(bufnr, bookmark)
 	-- position (e.g. `O` to open a line above), the extmark moves down to
 	-- track the original line's content rather than left-anchoring and
 	-- sticking to the newly inserted line. See issue #72.
-	local ok, extmark_id = pcall(vim.api.nvim_buf_set_extmark, bufnr, M.get_namespace(), line, 0, {
-		right_gravity = true,
-	})
+	local opts = { right_gravity = true }
+
+	-- Range annotations end at column 0 of the line *after* the range, so
+	-- `dd` on the last line shrinks the range instead of letting the end
+	-- creep onto the next line. end_right_gravity=false keeps `o` on the
+	-- last line from absorbing the new line. end_row == line_count is
+	-- valid for a range that ends on the final line.
+	if bookmark.end_line ~= nil then
+		opts.end_row = math.min(bookmark.end_line, line_count)
+		opts.end_col = 0
+		opts.end_right_gravity = false
+	end
+
+	local ok, extmark_id = pcall(vim.api.nvim_buf_set_extmark, bufnr, M.get_namespace(), line, 0, opts)
 
 	if not ok then
 		vim.notify(
@@ -441,7 +453,6 @@ end
 ---@param extmark_id number The extmark ID to query
 ---@return number|nil line The current 1-based line number, or nil if extmark not found
 function M.get_extmark_line(bufnr, extmark_id)
-	-- Validate inputs
 	if not is_valid_buffer(bufnr) then
 		vim.notify("haunt.nvim: get_extmark_line: invalid buffer number", vim.log.levels.ERROR)
 		return nil
@@ -452,21 +463,46 @@ function M.get_extmark_line(bufnr, extmark_id)
 		return nil
 	end
 
-	-- Query extmark position
-	local ok, pos = pcall(vim.api.nvim_buf_get_extmark_by_id, bufnr, M.get_namespace(), extmark_id, {})
+	return (M.get_extmark_range(bufnr, extmark_id))
+end
 
-	if not ok then
-		-- Extmark not found or other error
-		return nil
+--- Get the current line range for an extmark
+--- For a range extmark (see set_bookmark_mark), the end sits at column 0 of the
+--- line after the range; an end anywhere else (e.g. after `J` joins the last
+--- line into the next) still counts its own line. A range that no longer spans
+--- more than one line (e.g. every line was deleted) reports no end.
+---@param bufnr number Buffer number where the extmark is located
+---@param extmark_id number The extmark ID to query
+---@return number|nil start_line The current 1-based first line, or nil if extmark not found
+---@return number|nil end_line The current 1-based last line, or nil unless it is past the start
+function M.get_extmark_range(bufnr, extmark_id)
+	if not is_valid_buffer(bufnr) or type(extmark_id) ~= "number" then
+		return nil, nil
 	end
 
-	-- pos is a tuple {row, col} where row is 0-indexed
-	-- Convert to 1-based line number
-	if type(pos) == "table" and type(pos[1]) == "number" then
-		return pos[1] + 1
+	local ok, pos = pcall(vim.api.nvim_buf_get_extmark_by_id, bufnr, M.get_namespace(), extmark_id, { details = true })
+	if not ok or type(pos) ~= "table" or type(pos[1]) ~= "number" then
+		return nil, nil
 	end
 
-	return nil
+	local start_line = pos[1] + 1
+	local details = pos[3]
+	if type(details) ~= "table" or type(details.end_row) ~= "number" then
+		return start_line, nil
+	end
+
+	-- end_row is 0-based; at column 0 it is exclusive, which makes it the
+	-- 1-based last line as-is.
+	local end_line = details.end_row
+	if (details.end_col or 0) > 0 then
+		end_line = end_line + 1
+	end
+
+	if end_line <= start_line then
+		return start_line, nil
+	end
+
+	return start_line, end_line
 end
 
 --- Delete a bookmark extmark

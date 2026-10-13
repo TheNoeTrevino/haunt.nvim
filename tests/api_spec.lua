@@ -923,6 +923,98 @@ describe("haunt.api", function()
 		end)
 	end)
 
+	-- Issue #108: annotations that cover a range of lines.
+	describe("annotate with a range", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "one", "two", "three", "four", "five", "six" })
+		end)
+
+		after_each(function()
+			pcall(vim.keymap.del, "x", "<Plug>(haunt-test-annotate)")
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("saves end_line for an explicit range", function()
+			assert.is_true(api.annotate("a block", { line1 = 2, line2 = 4 }))
+
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(1, #bookmarks)
+			assert.are.equal(2, bookmarks[1].line)
+			assert.are.equal(4, bookmarks[1].end_line)
+
+			local saved = helpers.read_bookmarks_file(require("haunt.persistence").get_storage_path()).bookmarks
+			assert.are.equal(2, saved[1].line)
+			assert.are.equal(4, saved[1].end_line)
+		end)
+
+		it("orders a reversed range", function()
+			api.annotate("a block", { line1 = 4, line2 = 2 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(2, bookmark.line)
+			assert.are.equal(4, bookmark.end_line)
+		end)
+
+		it("treats a one-line range as a normal bookmark", function()
+			api.annotate("one line", { line1 = 3, line2 = 3 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(3, bookmark.line)
+			assert.is_nil(bookmark.end_line)
+			local saved = helpers.read_bookmarks_file(require("haunt.persistence").get_storage_path()).bookmarks
+			assert.is_nil(saved[1].end_line)
+		end)
+
+		it("rejects a range that starts past the end of the buffer", function()
+			helpers.cleanup_buffer(bufnr, test_file)
+			bufnr, test_file = helpers.create_test_buffer({ "one", "two", "three", "four", "five" })
+
+			local messages = {}
+			local original_notify = vim.notify
+			vim.notify = function(msg)
+				table.insert(messages, msg)
+			end
+			local ok = api.annotate("too far", { line1 = 8, line2 = 10 })
+			vim.notify = original_notify
+
+			assert.is_false(ok)
+			assert.are.equal(0, #api.get_bookmarks())
+			assert.is_truthy(table.concat(messages, "\n"):find("past the end of the buffer", 1, true))
+		end)
+
+		it("clamps a range that runs past the end of the buffer", function()
+			api.annotate("a block", { line1 = 5, line2 = 99 })
+
+			local bookmark = api.get_bookmarks()[1]
+			assert.are.equal(5, bookmark.line)
+			assert.are.equal(6, bookmark.end_line)
+		end)
+
+		it("annotates the range, not the cursor line", function()
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("a block", { line1 = 2, line2 = 4 })
+
+			assert.are.equal(2, api.get_bookmarks()[1].line)
+		end)
+
+		for _, mode in ipairs({ "v", "V", "\22" }) do
+			it("takes the range from Visual mode " .. vim.fn.keytrans(mode), function()
+				vim.keymap.set("x", "<Plug>(haunt-test-annotate)", function()
+					api.annotate("from visual")
+				end)
+				vim.api.nvim_win_set_cursor(0, { 2, 0 })
+				vim.api.nvim_feedkeys(mode .. "jj" .. vim.keycode("<Plug>(haunt-test-annotate)"), "x", false)
+
+				assert.are.equal("n", vim.fn.mode(), "annotate should leave Visual mode")
+				local bookmark = api.get_bookmarks()[1]
+				assert.are.equal(2, bookmark.line)
+				assert.are.equal(4, bookmark.end_line)
+			end)
+		end
+	end)
+
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix
 	-- path: get_quickfix_items read the module-level bookmarks table directly
 	-- instead of going through get_bookmarks(), so it never synced from

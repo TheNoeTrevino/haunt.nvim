@@ -6,7 +6,7 @@
 --- haunt.nvim provides the following user commands:
 ---
 --- `:HauntToggle` - Toggle bookmark annotation visibility
---- `:HauntAnnotate [text]` - Add or edit annotation for bookmark at cursor
+--- `:[range]HauntAnnotate [text]` - Add or edit annotation for bookmark at cursor, or annotate a line range (e.g. `:'<,'>HauntAnnotate`)
 --- `:HauntDelete` - Delete bookmark at current line
 --- `:HauntNext` - Jump to next bookmark
 --- `:HauntPrev` - Jump to previous bookmark
@@ -32,11 +32,12 @@ vim.g.loaded_haunt = 1
 ---@field desc string
 ---@field has_args? boolean
 ---@field args? table
+---@field range? boolean
 
 ---@type table<string, HauntCommandInfo>
 local commands = {
 	HauntToggle = { fn = "toggle_annotation", desc = "Toggle bookmark annotation visibility" },
-	HauntAnnotate = { fn = "annotate", desc = "Add/edit annotation", has_args = true },
+	HauntAnnotate = { fn = "annotate", desc = "Add/edit annotation", has_args = true, range = true },
 	HauntClear = { fn = "clear", desc = "Clear bookmarks in current file" },
 	HauntClearAll = { fn = "clear_all", desc = "Clear all bookmarks" },
 	HauntNext = { fn = "next", desc = "Jump to next bookmark" },
@@ -50,14 +51,16 @@ local commands = {
 
 for name, info in pairs(commands) do
 	vim.api.nvim_create_user_command(name, function(opts)
-		if info.has_args and opts.args ~= "" then
-			require("haunt.api")[info.fn](opts.args)
+		if info.has_args then
+			local text = opts.args ~= "" and opts.args or nil
+			local range = (info.range and opts.range > 0) and { line1 = opts.line1, line2 = opts.line2 } or nil
+			require("haunt.api")[info.fn](text, range)
 		elseif info.args then
 			require("haunt.api")[info.fn](info.args)
 		else
 			require("haunt.api")[info.fn]()
 		end
-	end, { desc = info.desc, nargs = info.has_args and "?" or 0 })
+	end, { desc = info.desc, nargs = info.has_args and "?" or 0, range = info.range })
 end
 
 -- Special case for HauntList (uses picker)

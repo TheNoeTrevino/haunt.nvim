@@ -18,7 +18,7 @@
 ---@field load fun(): boolean
 ---@field restore_buffer_bookmarks fun(bufnr: number): boolean
 ---@field save fun(): boolean
----@field annotate fun(text?: string): boolean
+---@field annotate fun(text?: string, range?: HauntLineRange): boolean
 ---@field clear fun(): boolean
 ---@field clear_all fun(): boolean
 ---@field next fun(): boolean
@@ -147,8 +147,9 @@ end
 ---@param filepath string Normalized absolute file path
 ---@param line number 1-based line number
 ---@param note string|nil Optional annotation text
+---@param end_line? number Optional 1-based last line, for a range annotation
 ---@return boolean success True if bookmark was created and persisted successfully
-local function create_and_persist_bookmark(bufnr, filepath, line, note)
+local function create_and_persist_bookmark(bufnr, filepath, line, note, end_line)
 	ensure_modules()
 	---@cast store -nil
 	---@cast display -nil
@@ -156,7 +157,7 @@ local function create_and_persist_bookmark(bufnr, filepath, line, note)
 	---@cast hooks -nil
 
 	-- Create bookmark with unique ID
-	local new_bookmark, err = persistence.create_bookmark(filepath, line, note)
+	local new_bookmark, err = persistence.create_bookmark(filepath, line, note, end_line)
 	if not new_bookmark then
 		vim.notify("haunt.nvim: Failed to create bookmark: " .. (err or "unknown error"), vim.log.levels.ERROR)
 		return false
@@ -497,13 +498,53 @@ function M.delete()
 	return true
 end
 
+---@class HauntLineRange
+---@field line1 number 1-based first line
+---@field line2 number 1-based last line
+
+--- Read the line range of the active Visual selection, then leave Visual mode.
+--- Uses getpos("v") and the cursor because '< and '> are not updated until
+--- Visual mode ends. Every Visual mode (v, V, CTRL-V) is treated as linewise.
+---@return HauntLineRange|nil range nil when not in Visual mode
+local function take_visual_range()
+	local mode = vim.fn.mode()
+	if mode ~= "v" and mode ~= "V" and mode ~= "\22" then
+		return nil
+	end
+
+	local line1 = vim.fn.getpos("v")[2]
+	local line2 = vim.fn.getpos(".")[2]
+	vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+
+	return { line1 = line1, line2 = line2 }
+end
+
+--- Order a line range and clamp it to the buffer.
+---@param range HauntLineRange
+---@param line_count number Lines in the buffer
+---@return number|nil line First line, or nil when the range starts past the buffer
+---@return number|nil end_line Last line
+local function normalize_range(range, line_count)
+	local first = math.min(range.line1, range.line2)
+	local last = math.max(range.line1, range.line2)
+	if first > line_count then
+		return nil, nil
+	end
+	return math.max(first, 1), math.min(last, line_count)
+end
+
 --- Add or edit an annotation for a bookmark.
 ---
 --- If a bookmark exists at the current line, updates its annotation.
 --- If no bookmark exists, creates a new bookmark with the annotation.
 --- Empty input cancels the operation.
 ---
+--- Called from Visual mode (any of v, V, CTRL-V), or given a `range`, the new
+--- bookmark covers every selected line: it is anchored at the first line and
+--- its `end_line` is saved with it. A range of one line is a normal bookmark.
+---
 ---@param text? string Optional annotation text. If provided, skips the input prompt.
+---@param range? HauntLineRange Optional line range. Defaults to the Visual selection, if any.
 ---@return boolean success True if annotation was created/updated
 ---
 ---@usage >lua
@@ -512,8 +553,14 @@ end
 ---
 ---   -- Set annotation programmatically
 ---   require('haunt.api').annotate("TODO: Fix this bug")
+---
+---   -- Annotate a Visual selection
+---   vim.keymap.set("x", "<leader>ha", function() require('haunt.api').annotate() end)
+---
+---   -- Annotate lines 40-52 programmatically
+---   require('haunt.api').annotate("extract into a helper", { line1 = 40, line2 = 52 })
 --- <
-function M.annotate(text)
+function M.annotate(text, range)
 	ensure_modules()
 	---@cast store -nil
 
@@ -530,8 +577,24 @@ function M.annotate(text)
 		return false
 	end
 
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	local line = cursor[1] -- 1-based line number
+	-- Always leave Visual mode before prompting, even when a range was passed.
+	local visual_range = take_visual_range()
+	range = range or visual_range
+
+	local line, end_line
+	if range then
+		local line_count = vim.api.nvim_buf_line_count(bufnr)
+		line, end_line = normalize_range(range, line_count)
+		if not line then
+			vim.notify(
+				string.format("haunt.nvim: range starts past the end of the buffer (%d lines)", line_count),
+				vim.log.levels.ERROR
+			)
+			return false
+		end
+	else
+		line = vim.api.nvim_win_get_cursor(0)[1] -- 1-based line number
+	end
 
 	local filepath = utils.normalize_filepath(vim.api.nvim_buf_get_name(bufnr))
 
@@ -560,7 +623,7 @@ function M.annotate(text)
 		return success
 	end
 
-	local success = create_and_persist_bookmark(bufnr, filepath, line, annotation)
+	local success = create_and_persist_bookmark(bufnr, filepath, line, annotation, end_line)
 	if success then
 		vim.notify("haunt.nvim: Annotation created", vim.log.levels.INFO)
 	end

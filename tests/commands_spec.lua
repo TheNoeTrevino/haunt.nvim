@@ -64,6 +64,16 @@ describe("haunt user commands", function()
 			assert.are.equal(1, #bookmarks)
 			assert.are.equal("Command annotation", bookmarks[1].note)
 		end)
+
+		it("annotates a line range", function()
+			vim.cmd("1,2HauntAnnotate range note")
+
+			local bookmarks = api.get_bookmarks()
+			assert.are.equal(1, #bookmarks)
+			assert.are.equal("range note", bookmarks[1].note)
+			assert.are.equal(1, bookmarks[1].line)
+			assert.are.equal(2, bookmarks[1].end_line)
+		end)
 	end)
 
 	describe("HauntDelete", function()

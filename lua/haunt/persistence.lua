@@ -13,6 +13,7 @@
 ---@class Bookmark
 ---@field file string Absolute path while in memory; serialized as relative to project root unless `absolute=true`
 ---@field line number 1-based line number of the bookmark
+---@field end_line? number 1-based last line of a range annotation; nil for single-line bookmarks
 ---@field note string|nil Optional annotation text displayed as virtual text
 ---@field id string Unique bookmark identifier (auto-generated)
 ---@field absolute? boolean Whether file is stored as absolute path (out-of-project)
@@ -28,8 +29,9 @@
 ---@field _get_v1_storage_path fun(repo_root: string, branch: string|nil, per_branch: boolean|nil): string
 ---@field save_bookmarks fun(bookmarks: Bookmark[], filepath?: string, project_root?: string|nil): boolean
 ---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
----@field create_bookmark fun(file: string, line: number, note?: string): Bookmark|nil, string|nil
+---@field create_bookmark fun(file: string, line: number, note?: string, end_line?: number): Bookmark|nil, string|nil
 ---@field is_valid_bookmark fun(bookmark: table): boolean
+---@field normalize_end_line fun(line: number, end_line: any): number|nil
 ---@field _build_serializable fun(bookmarks: Bookmark[], project_root?: string|nil): table[]
 
 ---@private
@@ -147,6 +149,9 @@ function M._build_serializable(bookmarks, project_root)
 			id = bookmark.id,
 		}
 
+		-- Only ranges carry end_line, so single-line entries keep their shape.
+		entry.end_line = bookmark.end_line
+
 		local relative = nil
 		if project_root and not bookmark.absolute then
 			relative = utils.to_relative(bookmark.file, project_root)
@@ -244,6 +249,8 @@ local function resolve_v2_bookmarks(bookmarks)
 	local warned_no_root = false
 
 	for _, bookmark in ipairs(bookmarks) do
+		bookmark.end_line = M.normalize_end_line(bookmark.line, bookmark.end_line)
+
 		if bookmark.absolute == true then
 			goto continue
 		end
@@ -348,6 +355,19 @@ function M.load_bookmarks(filepath)
 	return nil
 end
 
+--- The one rule for "is a range": a bookmark has an end_line only when it is
+--- a number past its first line. Anything else (nil, one line, garbage) is a
+--- single-line bookmark, so readers only need to test `end_line ~= nil`.
+---@param line number 1-based first line
+---@param end_line any Candidate 1-based last line
+---@return number|nil end_line The last line, or nil for a single-line bookmark
+function M.normalize_end_line(line, end_line)
+	if type(line) == "number" and type(end_line) == "number" and end_line > line then
+		return end_line
+	end
+	return nil
+end
+
 --- Generate a unique bookmark ID
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
@@ -362,9 +382,10 @@ end
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
 --- @param note? string Optional annotation text
+--- @param end_line? number Optional 1-based last line, for a range annotation
 --- @return Bookmark|nil bookmark A new bookmark table, or nil if validation fails
 --- @return string|nil error_msg Error message if validation fails
-function M.create_bookmark(file, line, note)
+function M.create_bookmark(file, line, note, end_line)
 	-- Validate inputs
 	if type(file) ~= "string" or file == "" then
 		vim.notify("haunt.nvim: create_bookmark: file must be a non-empty string", vim.log.levels.ERROR)
@@ -381,9 +402,15 @@ function M.create_bookmark(file, line, note)
 		return nil, "note must be nil or a string"
 	end
 
+	if end_line ~= nil and (type(end_line) ~= "number" or end_line < line) then
+		vim.notify("haunt.nvim: create_bookmark: end_line must be nil or a number >= line", vim.log.levels.ERROR)
+		return nil, "end_line must be nil or a number >= line"
+	end
+
 	return {
 		file = file,
 		line = line,
+		end_line = M.normalize_end_line(line, end_line),
 		note = note,
 		id = generate_bookmark_id(file, line),
 		extmark_id = nil, -- Will be set by display layer
@@ -414,6 +441,10 @@ function M.is_valid_bookmark(bookmark)
 
 	-- optional fields (nil | right type)
 	if bookmark.note ~= nil and type(bookmark.note) ~= "string" then
+		return false
+	end
+
+	if bookmark.end_line ~= nil and (type(bookmark.end_line) ~= "number" or bookmark.end_line < bookmark.line) then
 		return false
 	end
 

@@ -425,6 +425,60 @@ describe("haunt.store", function()
 		end)
 	end)
 
+	-- Issue #108: range bookmarks sync their end line as well as their start.
+	describe("range sync", function()
+		local display, bufnr, tmpfile
+
+		before_each(function()
+			display = require("haunt.display")
+			bufnr, tmpfile = helpers.create_test_buffer({ "one", "two", "three", "four", "five", "six" })
+
+			local extmark_id = display.set_bookmark_mark(bufnr, { line = 2, end_line = 4 })
+			store.add_bookmark({
+				file = tmpfile,
+				line = 2,
+				end_line = 4,
+				id = "range",
+				extmark_id = extmark_id,
+			})
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, tmpfile)
+		end)
+
+		it("saves the tracked range, not the range it was created with", function()
+			vim.api.nvim_buf_set_lines(bufnr, 0, 0, false, { "new top" })
+
+			store.save()
+
+			local saved = mock_persistence.saved_bookmarks[1]
+			assert.are.equal(3, saved.line)
+			assert.are.equal(5, saved.end_line)
+		end)
+
+		it("collapses to one line when every line of the range is deleted", function()
+			vim.api.nvim_buf_set_lines(bufnr, 1, 4, false, {})
+
+			local bookmark = store.get_bookmarks()[1]
+			assert.are.equal(2, bookmark.line)
+			assert.is_nil(bookmark.end_line)
+		end)
+
+		it("gets its range back when the deletion is undone", function()
+			vim.cmd("let &undolevels = &undolevels")
+			vim.cmd("normal! 2G3dd")
+			-- A read while the range is gone syncs it down to one line.
+			assert.is_nil(store.get_bookmarks()[1].end_line)
+
+			vim.cmd("normal! u")
+
+			local bookmark = store.get_bookmarks()[1]
+			assert.are.equal(2, bookmark.line)
+			assert.are.equal(4, bookmark.end_line)
+		end)
+	end)
+
 	describe("load", function()
 		it("loads bookmarks from persistence", function()
 			mock_persistence.bookmarks_to_load = {
