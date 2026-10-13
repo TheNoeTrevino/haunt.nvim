@@ -1253,6 +1253,89 @@ describe("haunt.api", function()
 		end)
 	end)
 
+	describe("range rail", function()
+		local bufnr, test_file
+
+		--- The rail signs in the buffer, keyed by 1-based line.
+		---@return table<number, string> rows
+		local function rail()
+			local rows = {}
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			for _, mark in ipairs(marks) do
+				if mark[4].sign_text then
+					rows[mark[2] + 1] = vim.trim(mark[4].sign_text)
+				end
+			end
+			return rows
+		end
+
+		before_each(function()
+			local lines = {}
+			for i = 1, 12 do
+				lines[i] = "line " .. i
+			end
+			bufnr, test_file = helpers.create_test_buffer(lines)
+			api.annotate("range", { line1 = 5, line2 = 8 })
+			vim.api.nvim_win_set_cursor(0, { 7, 0 })
+			api.annotate("single")
+		end)
+
+		after_each(function()
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("draws the rail when a range is created", function()
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("delete on a covered line removes the rail", function()
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			assert.is_true(api.delete())
+			assert.are.same({}, rail())
+		end)
+
+		it("delete of the nested single keeps the rail", function()
+			vim.api.nvim_win_set_cursor(0, { 7, 0 })
+			assert.is_true(api.delete())
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("delete_by_id removes the rail", function()
+			local range = vim.iter(api.get_bookmarks()):find(function(bookmark)
+				return bookmark.note == "range"
+			end)
+			assert.is_true(api.delete_by_id(range.id))
+			assert.are.same({}, rail())
+		end)
+
+		it("clear removes the rail", function()
+			assert.is_true(api.clear())
+			assert.are.same({}, rail())
+		end)
+
+		it("clear_all removes the rail", function()
+			local original_confirm = vim.fn.confirm
+			vim.fn.confirm = function()
+				return 1
+			end
+			local ok = api.clear_all()
+			vim.fn.confirm = original_confirm
+
+			assert.is_true(ok)
+			assert.are.same({}, rail())
+		end)
+
+		it("hiding all annotations keeps the rail, like the sign", function()
+			assert.is_false(api.toggle_all_lines())
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+
+		it("reload draws the rail again on the restored buffer", function()
+			api.reload()
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "╰" }, rail())
+		end)
+	end)
+
 	-- Regression: issue #99. Same stale-line class as #92, but on the quickfix
 	-- path: get_quickfix_items read the module-level bookmarks table directly
 	-- instead of going through get_bookmarks(), so it never synced from

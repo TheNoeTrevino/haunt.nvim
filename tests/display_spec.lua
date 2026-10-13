@@ -832,4 +832,150 @@ describe("haunt.display", function()
 			vim.api.nvim_buf_delete(bufnr, { force = true })
 		end)
 	end)
+
+	describe("range rail", function()
+		local bufnr
+
+		before_each(function()
+			bufnr = vim.api.nvim_create_buf(false, true)
+			local lines = {}
+			for i = 1, 12 do
+				lines[i] = "line " .. i
+			end
+			vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+		end)
+
+		after_each(function()
+			if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+				vim.api.nvim_buf_delete(bufnr, { force = true })
+			end
+		end)
+
+		--- The rail signs in the buffer, keyed by 1-based line.
+		---@return table<number, string> rows
+		local function rail()
+			local rows = {}
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			for _, mark in ipairs(marks) do
+				if mark[4].sign_text then
+					rows[mark[2] + 1] = vim.trim(mark[4].sign_text)
+				end
+			end
+			return rows
+		end
+
+		it("draws a body sign on each covered line and a tail on the last", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, "range", 10)
+			display.render_bookmark(bufnr, bookmark, true)
+
+			assert.are.same({ [6] = "│", [7] = "│", [8] = "│", [9] = "│", [10] = "╰" }, rail())
+		end)
+
+		it("draws the rail below gitsigns with the HauntRange highlight", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, nil, 6)
+			display.render_bookmark(bufnr, bookmark, false)
+
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			local tail = vim.iter(marks):find(function(mark)
+				return mark[4].sign_text ~= nil
+			end)
+			assert.are.equal(5, tail[4].priority)
+			assert.are.equal("HauntRange", tail[4].sign_hl_group)
+		end)
+
+		it("leaves a single line bookmark without a rail", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, "single")
+			display.render_bookmark(bufnr, bookmark, true)
+
+			assert.are.same({}, rail())
+		end)
+
+		it("keeps a single nested in a range on its own sign", function()
+			local range = persistence.create_bookmark("test.lua", 5, "range", 10)
+			local single = persistence.create_bookmark("test.lua", 7, "single")
+			display.render_bookmark(bufnr, range, true)
+			display.render_bookmark(bufnr, single, true)
+
+			-- The rail still covers 7; the bookmark sign outranks it there
+			assert.are.equal("│", rail()[7])
+			local placed = vim.fn.sign_getplaced(bufnr, { group = "haunt_signs", lnum = 7 })[1].signs
+			assert.are.equal(1, #placed)
+			assert.is_true(placed[1].priority > 5)
+		end)
+
+		it("keeps the outer rail unbroken over a nested range's tail", function()
+			local outer = persistence.create_bookmark("test.lua", 2, nil, 10)
+			local inner = persistence.create_bookmark("test.lua", 4, nil, 6)
+			display.render_bookmark(bufnr, outer, false)
+			display.render_bookmark(bufnr, inner, false)
+
+			local rows = rail()
+			assert.are.equal("│", rows[6])
+			assert.are.equal("╰", rows[10])
+		end)
+
+		it("uses the configured glyphs and priority", function()
+			config.setup({ range = { glyphs = { body = "┃", tail = "┗" }, priority = 3 } })
+			local bookmark = persistence.create_bookmark("test.lua", 5, nil, 7)
+			display.render_bookmark(bufnr, bookmark, false)
+
+			assert.are.same({ [6] = "┃", [7] = "┗" }, rail())
+		end)
+
+		it("draws nothing with style none", function()
+			config.setup({ range = { style = "none" } })
+			local bookmark = persistence.create_bookmark("test.lua", 5, "range", 10)
+			display.render_bookmark(bufnr, bookmark, true)
+
+			assert.are.same({}, rail())
+			assert.are.equal(5, display.get_extmark_line(bufnr, bookmark.extmark_id))
+		end)
+
+		it("clear_bookmark removes the rail", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, "range", 10)
+			display.render_bookmark(bufnr, bookmark, true)
+
+			display.clear_bookmark(bufnr, bookmark)
+
+			assert.are.same({}, rail())
+		end)
+
+		it("clear_bookmark keeps the rail of another range", function()
+			local a = persistence.create_bookmark("test.lua", 2, nil, 3)
+			local b = persistence.create_bookmark("test.lua", 5, nil, 6)
+			display.render_bookmark(bufnr, a, false)
+			display.render_bookmark(bufnr, b, false)
+
+			display.clear_bookmark(bufnr, a)
+
+			assert.are.same({ [6] = "╰" }, rail())
+		end)
+
+		it("render_bookmark again does not duplicate the rail", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, nil, 7)
+			display.render_bookmark(bufnr, bookmark, false)
+			display.render_bookmark(bufnr, bookmark, false)
+
+			local marks = vim.api.nvim_buf_get_extmarks(bufnr, display.get_namespace(), 0, -1, { details = true })
+			local signs = vim
+				.iter(marks)
+				:filter(function(mark)
+					return mark[4].sign_text ~= nil
+				end)
+				:totable()
+			assert.are.equal(2, #signs)
+		end)
+
+		it("clear_buffer_marks forgets the buffer's ranges", function()
+			local bookmark = persistence.create_bookmark("test.lua", 5, nil, 7)
+			display.render_bookmark(bufnr, bookmark, false)
+
+			display.clear_buffer_marks(bufnr)
+			-- A fresh mark may reuse the old tracking ID; it must not grow a rail
+			vim.api.nvim_buf_set_extmark(bufnr, display.get_namespace(), 0, 0, { end_row = 3, end_col = 0 })
+			display.refresh_rails(bufnr)
+
+			assert.are.same({}, rail())
+		end)
+	end)
 end)

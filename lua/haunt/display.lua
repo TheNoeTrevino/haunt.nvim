@@ -17,6 +17,7 @@
 ---@field clear_note fun(bufnr: number, bookmark: Bookmark)
 ---@field render_bookmark fun(bufnr: number, bookmark: Bookmark, show_note: boolean): boolean
 ---@field clear_bookmark fun(bufnr: number, bookmark: Bookmark)
+---@field refresh_rails fun(bufnr: number)
 
 ---@type DisplayModule
 ---@diagnostic disable-next-line: missing-fields
@@ -547,6 +548,125 @@ function M.delete_bookmark_mark(bufnr, extmark_id)
 	return true
 end
 
+---@class HauntRailState
+---@field ranges table<number, true> Tracking extmark IDs of the buffer's range bookmarks
+---@field spans {[1]: number, [2]: number}[] 1-based first and last line of each range, as of the last refresh
+---@field marks number[] Extmark IDs of the rail signs drawn now
+---@field cfg HauntRangeConfig The range config the rail was last drawn with
+
+--- Rail state per buffer. A range keeps one tracking extmark; its rail is a
+--- sign extmark per covered line, so the rails are redrawn from the spans.
+---@type table<number, HauntRailState>
+local _rails = {}
+
+--- Remove the rail signs drawn in a buffer.
+---@param bufnr number Buffer number
+---@param state HauntRailState
+local function erase_rails(bufnr, state)
+	local ns = M.get_namespace()
+	for _, id in ipairs(state.marks) do
+		pcall(vim.api.nvim_buf_del_extmark, bufnr, ns, id)
+	end
+	state.marks = {}
+end
+
+--- Draw the rail signs for the cached spans, one sign per line.
+--- Where a nested range's last line is also inside an outer range, the outer
+--- range's body glyph wins so its rail stays unbroken.
+---@param bufnr number Buffer number
+---@param state HauntRailState
+local function draw_rails(bufnr, state)
+	erase_rails(bufnr, state)
+	if state.cfg.style ~= "rail" then
+		return
+	end
+
+	local glyphs = state.cfg.glyphs
+	---@type table<number, string>
+	local rows = {}
+	for _, span in ipairs(state.spans) do
+		for line = span[1] + 1, span[2] do
+			if line < span[2] then
+				rows[line] = glyphs.body
+			elseif not rows[line] then
+				rows[line] = glyphs.tail
+			end
+		end
+	end
+
+	ensure_highlights_defined()
+	local ns = M.get_namespace()
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
+	for line, glyph in pairs(rows) do
+		if line <= line_count then
+			local ok, id = pcall(vim.api.nvim_buf_set_extmark, bufnr, ns, line - 1, 0, {
+				sign_text = glyph,
+				sign_hl_group = "HauntRange",
+				priority = state.cfg.priority,
+			})
+			if ok then
+				table.insert(state.marks, id)
+			end
+		end
+	end
+end
+
+--- Redraw a buffer's rails from where its range extmarks sit now.
+--- Reads only the tracking extmarks, never the store. A range whose lines
+--- were all deleted stays registered, since undo can restore its end.
+---@param bufnr number Buffer number
+function M.refresh_rails(bufnr)
+	local state = _rails[bufnr]
+	if not state then
+		return
+	end
+	if not is_valid_buffer(bufnr) then
+		_rails[bufnr] = nil
+		return
+	end
+
+	state.cfg = config.get().range
+	state.spans = {}
+	for id in pairs(state.ranges) do
+		local start_line, end_line = M.get_extmark_range(bufnr, id)
+		if not start_line then
+			state.ranges[id] = nil
+		elseif end_line then
+			table.insert(state.spans, { start_line, end_line })
+		end
+	end
+
+	draw_rails(bufnr, state)
+end
+
+--- Start drawing the rail for a range's tracking extmark.
+---@param bufnr number Buffer number
+---@param extmark_id number The range's tracking extmark ID
+local function register_range(bufnr, extmark_id)
+	if config.get().range.style == "none" then
+		return
+	end
+	local state = _rails[bufnr]
+	if not state then
+		state = { ranges = {}, spans = {}, marks = {}, cfg = config.get().range }
+		_rails[bufnr] = state
+	end
+	state.ranges[extmark_id] = true
+	M.refresh_rails(bufnr)
+end
+
+--- Stop drawing the rail for a tracking extmark, if it has one.
+---@param bufnr number Buffer number
+---@param extmark_id number The tracking extmark ID
+local function unregister_range(bufnr, extmark_id)
+	local state = _rails[bufnr]
+	if not state or not state.ranges[extmark_id] then
+		return
+	end
+	state.ranges[extmark_id] = nil
+	M.refresh_rails(bufnr)
+end
+
 --- Clear all bookmark extmarks from a buffer
 --- Useful when reloading bookmarks or clearing all bookmarks
 ---@param bufnr number Buffer number to clear extmarks from
@@ -558,8 +678,9 @@ function M.clear_buffer_marks(bufnr)
 		return false
 	end
 
-	-- Clear all extmarks in the namespace for this buffer
+	-- Clear all extmarks in the namespace for this buffer, rails included
 	local ok = pcall(vim.api.nvim_buf_clear_namespace, bufnr, M.get_namespace(), 0, -1)
+	_rails[bufnr] = nil
 
 	if not ok then
 		vim.notify("haunt.nvim: clear_buffer_marks: failed to clear extmarks", vim.log.levels.ERROR)
@@ -629,7 +750,7 @@ function M.render_note(bufnr, bookmark)
 	return bookmark.annotation_extmark_id
 end
 
---- Remove every visual a bookmark has: tracking extmark, sign and annotation
+--- Remove every visual a bookmark has: tracking extmark, sign, rail and annotation
 ---@param bufnr number Buffer number
 ---@param bookmark Bookmark The bookmark whose visuals to remove
 function M.clear_bookmark(bufnr, bookmark)
@@ -637,11 +758,12 @@ function M.clear_bookmark(bufnr, bookmark)
 	if bookmark.extmark_id then
 		M.delete_bookmark_mark(bufnr, bookmark.extmark_id)
 		M.unplace_sign(bufnr, bookmark.extmark_id)
+		unregister_range(bufnr, bookmark.extmark_id)
 		bookmark.extmark_id = nil
 	end
 end
 
---- Draw a bookmark from scratch: tracking extmark, sign and, optionally, annotation
+--- Draw a bookmark from scratch: tracking extmark, sign, rail and, optionally, annotation
 --- Clears whatever the bookmark drew before, so it is safe to call again.
 ---@param bufnr number Buffer number
 ---@param bookmark Bookmark The bookmark to draw. Its extmark IDs are reassigned.
@@ -658,6 +780,10 @@ function M.render_bookmark(bufnr, bookmark, show_note)
 
 	-- The sign reuses the tracking extmark's ID
 	M.place_sign(bufnr, bookmark.line, extmark_id)
+
+	if bookmark.end_line then
+		register_range(bufnr, extmark_id)
+	end
 
 	if show_note then
 		M.render_note(bufnr, bookmark)
