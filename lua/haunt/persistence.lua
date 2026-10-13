@@ -13,6 +13,7 @@
 ---@class Bookmark
 ---@field file string Absolute path while in memory; serialized as relative to project root unless `absolute=true`
 ---@field line number 1-based line number of the bookmark
+---@field end_line? number 1-based last line of a range annotation; nil for single-line bookmarks
 ---@field note string|nil Optional annotation text displayed as virtual text
 ---@field id string Unique bookmark identifier (auto-generated)
 ---@field absolute? boolean Whether file is stored as absolute path (out-of-project)
@@ -28,7 +29,7 @@
 ---@field _get_v1_storage_path fun(repo_root: string, branch: string|nil, per_branch: boolean|nil): string
 ---@field save_bookmarks fun(bookmarks: Bookmark[], filepath?: string, project_root?: string|nil): boolean
 ---@field load_bookmarks fun(filepath?: string): Bookmark[]|nil
----@field create_bookmark fun(file: string, line: number, note?: string): Bookmark|nil, string|nil
+---@field create_bookmark fun(file: string, line: number, note?: string, end_line?: number): Bookmark|nil, string|nil
 ---@field is_valid_bookmark fun(bookmark: table): boolean
 ---@field _build_serializable fun(bookmarks: Bookmark[], project_root?: string|nil): table[]
 
@@ -146,6 +147,11 @@ function M._build_serializable(bookmarks, project_root)
 			note = bookmark.note,
 			id = bookmark.id,
 		}
+
+		-- Only ranges carry end_line, so single-line entries keep their shape.
+		if bookmark.end_line and bookmark.end_line > bookmark.line then
+			entry.end_line = bookmark.end_line
+		end
 
 		local relative = nil
 		if project_root and not bookmark.absolute then
@@ -362,9 +368,10 @@ end
 --- @param file string Absolute path to the file
 --- @param line number 1-based line number
 --- @param note? string Optional annotation text
+--- @param end_line? number Optional 1-based last line, for a range annotation
 --- @return Bookmark|nil bookmark A new bookmark table, or nil if validation fails
 --- @return string|nil error_msg Error message if validation fails
-function M.create_bookmark(file, line, note)
+function M.create_bookmark(file, line, note, end_line)
 	-- Validate inputs
 	if type(file) ~= "string" or file == "" then
 		vim.notify("haunt.nvim: create_bookmark: file must be a non-empty string", vim.log.levels.ERROR)
@@ -381,9 +388,20 @@ function M.create_bookmark(file, line, note)
 		return nil, "note must be nil or a string"
 	end
 
+	if end_line ~= nil and (type(end_line) ~= "number" or end_line < line) then
+		vim.notify("haunt.nvim: create_bookmark: end_line must be nil or a number >= line", vim.log.levels.ERROR)
+		return nil, "end_line must be nil or a number >= line"
+	end
+
+	-- A one-line "range" is just a bookmark.
+	if end_line == line then
+		end_line = nil
+	end
+
 	return {
 		file = file,
 		line = line,
+		end_line = end_line,
 		note = note,
 		id = generate_bookmark_id(file, line),
 		extmark_id = nil, -- Will be set by display layer
@@ -414,6 +432,10 @@ function M.is_valid_bookmark(bookmark)
 
 	-- optional fields (nil | right type)
 	if bookmark.note ~= nil and type(bookmark.note) ~= "string" then
+		return false
+	end
+
+	if bookmark.end_line ~= nil and (type(bookmark.end_line) ~= "number" or bookmark.end_line < bookmark.line) then
 		return false
 	end
 

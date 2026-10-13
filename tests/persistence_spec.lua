@@ -325,12 +325,30 @@ describe("haunt.persistence", function()
 			local b2 = persistence.create_bookmark("/tmp/test.lua", 1)
 			assert.are_not.equal(b1.id, b2.id)
 		end)
+
+		it("creates a range bookmark with end_line", function()
+			local bookmark = persistence.create_bookmark("/tmp/test.lua", 40, "extract this", 52)
+			assert.are.equal(40, bookmark.line)
+			assert.are.equal(52, bookmark.end_line)
+		end)
+
+		it("drops end_line when the range is a single line", function()
+			local bookmark = persistence.create_bookmark("/tmp/test.lua", 40, "note", 40)
+			assert.is_nil(bookmark.end_line)
+		end)
+
+		it("rejects end_line before line", function()
+			local bookmark, err = persistence.create_bookmark("/tmp/test.lua", 40, "note", 39)
+			assert.is_nil(bookmark)
+			assert.is_string(err)
+		end)
 	end)
 
 	describe("is_valid_bookmark", function()
 		local valid_cases = {
 			{ desc = "full bookmark", bookmark = { file = "/test.lua", line = 1, id = "abc", note = "note" }, valid = true },
 			{ desc = "without note", bookmark = { file = "/test.lua", line = 1, id = "abc" }, valid = true },
+			{ desc = "range", bookmark = { file = "/test.lua", line = 1, end_line = 4, id = "abc" }, valid = true },
 		}
 
 		local invalid_cases = {
@@ -339,6 +357,16 @@ describe("haunt.persistence", function()
 			{ desc = "empty file", bookmark = { file = "", line = 1, id = "abc" }, valid = false },
 			{ desc = "line < 1", bookmark = { file = "/test.lua", line = 0, id = "abc" }, valid = false },
 			{ desc = "empty id", bookmark = { file = "/test.lua", line = 1, id = "" }, valid = false },
+			{
+				desc = "end_line before line",
+				bookmark = { file = "/test.lua", line = 5, end_line = 4, id = "abc" },
+				valid = false,
+			},
+			{
+				desc = "end_line as string",
+				bookmark = { file = "/test.lua", line = 5, end_line = "6", id = "abc" },
+				valid = false,
+			},
 			{
 				desc = "absolute as string",
 				bookmark = { file = "/test.lua", line = 1, id = "abc", absolute = "yes" },
@@ -582,6 +610,27 @@ describe("haunt.persistence", function()
 			-- absolute is omitted (or false-equivalent) for in-project bookmarks
 			assert.is_true(data.bookmarks[1].absolute == nil or data.bookmarks[1].absolute == false)
 			assert.are.equal("lib/util.lua", data.bookmarks[2].file)
+		end)
+
+		it("writes end_line for ranges and omits it for single lines", function()
+			project_mock.set({ root = "/fake/proj", branch = "main", project_id = "fake" })
+
+			local bookmarks = {
+				{ file = "/fake/proj/a.lua", line = 10, id = "single", note = "one line" },
+				{ file = "/fake/proj/a.lua", line = 40, end_line = 52, id = "range", note = "a block" },
+			}
+
+			assert.is_true(persistence.save_bookmarks(bookmarks, test_file))
+
+			local data = read_raw(test_file)
+			assert.are.equal(2, data.version)
+			assert.is_nil(data.bookmarks[1].end_line)
+			assert.are.equal(40, data.bookmarks[2].line)
+			assert.are.equal(52, data.bookmarks[2].end_line)
+
+			local loaded = persistence.load_bookmarks(test_file)
+			assert.is_nil(loaded[1].end_line)
+			assert.are.equal(52, loaded[2].end_line)
 		end)
 
 		it("preserves absolute path for bookmarks flagged absolute=true", function()
