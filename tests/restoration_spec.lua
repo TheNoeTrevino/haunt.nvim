@@ -267,5 +267,19 @@ describe("haunt.restoration", function()
 			-- Prevent cleanup error
 			bufnr = nil
 		end)
+
+		it("reports failure when a bookmark cannot be drawn", function()
+			bufnr, test_file = helpers.create_test_buffer({ "Line 1", "Line 2", "Line 3" })
+			store.add_bookmark({ file = test_file, line = 1, id = "b1", note = "Test" })
+
+			local original_render = display.render_bookmark
+			display.render_bookmark = function()
+				return false
+			end
+			local result = restoration.restore_buffer_bookmarks(bufnr, true)
+			display.render_bookmark = original_render
+
+			assert.is_false(result)
+		end)
 	end)
 end)

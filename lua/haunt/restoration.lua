@@ -35,23 +35,6 @@ local function ensure_modules()
 	end
 end
 
---- Restore visual elements (extmarks, signs, annotations) for a bookmark in a loaded buffer
---- This is called when loading bookmarks to recreate visual state
----@param bufnr number Buffer number
----@param bookmark Bookmark The bookmark to restore
----@param annotations_visible boolean Whether annotations should be displayed
-local function restore_bookmark_display(bufnr, bookmark, annotations_visible)
-	ensure_modules()
-	---@cast display -nil
-
-	if not vim.api.nvim_buf_is_valid(bufnr) then
-		return
-	end
-
-	-- Clears any old visuals first, so nothing is orphaned
-	display.render_bookmark(bufnr, bookmark, annotations_visible)
-end
-
 --- Restore bookmark visuals for a specific buffer.
 ---
 --- This is called automatically when buffers are opened. You typically
@@ -111,10 +94,12 @@ function M.restore_buffer_bookmarks(bufnr, annotations_visible)
 	local success = true
 	for _, bookmark in ipairs(buffer_bookmarks) do
 		-- Use pcall to handle race conditions where buffer becomes invalid
-		local ok, err = pcall(restore_bookmark_display, bufnr, bookmark, annotations_visible)
-		if ok then
+		local ok, rendered = pcall(display.render_bookmark, bufnr, bookmark, annotations_visible)
+		if ok and rendered then
 			goto continue
 		end
+
+		local err = ok and "could not create extmark" or rendered
 
 		-- Log at DEBUG level - this is expected in race conditions
 		vim.notify(
