@@ -1618,4 +1618,41 @@ describe("haunt.api", function()
 			assert.are.equal(6, items[2].lnum)
 		end)
 	end)
+
+	describe("quickfix ranges", function()
+		local bufnr, test_file
+
+		before_each(function()
+			bufnr, test_file = helpers.create_test_buffer({ "a", "b", "c", "d", "e", "f" })
+		end)
+
+		after_each(function()
+			vim.fn.setqflist({}, "r")
+			helpers.cleanup_buffer(bufnr, test_file)
+		end)
+
+		it("sets end_lnum on a range and leaves a single line alone", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			vim.api.nvim_win_set_cursor(0, { 6, 0 })
+			api.annotate("single")
+
+			assert.is_true(api.to_quickfix())
+
+			local items = vim.fn.getqflist()
+			assert.are.equal(2, #items)
+			assert.are.equal(2, items[1].lnum)
+			assert.are.equal(4, items[1].end_lnum)
+			assert.are.equal(6, items[2].lnum)
+			assert.are.equal(0, items[2].end_lnum)
+		end)
+
+		it("reports the end after lines are inserted inside the range", function()
+			api.annotate("block", { line1 = 2, line2 = 4 })
+			vim.api.nvim_buf_set_lines(bufnr, 2, 2, false, { "new" })
+
+			local items = require("haunt.store").get_quickfix_items()
+			assert.are.equal(2, items[1].lnum)
+			assert.are.equal(5, items[1].end_lnum)
+		end)
+	end)
 end)

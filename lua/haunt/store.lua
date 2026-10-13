@@ -31,6 +31,7 @@ local M = {}
 ---@class QuickfixItem
 ---@field filename string
 ---@field lnum integer
+---@field end_lnum? integer Last line of a range annotation; nil for single lines
 ---@field col integer
 ---@field text string
 
@@ -314,6 +315,7 @@ function M.get_quickfix_items(opts)
 			return {
 				filename = bookmark.file, -- absolute path works best for quickfix
 				lnum = bookmark.line,
+				end_lnum = bookmark.end_line,
 				col = 1,
 				text = text,
 			}
