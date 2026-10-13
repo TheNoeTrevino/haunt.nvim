@@ -232,6 +232,33 @@ describe("haunt.picker.telescope", function()
 			telescope_picker.show()
 			assert.truthy(first_display():find("Test note", 1, true))
 		end)
+
+		it("spans a range in the label and the preview, single lines unchanged", function()
+			api.annotate("block", { line1 = 2, line2 = 3 })
+			telescope_picker.show()
+
+			local call = mock.new_calls[1]
+			local merged = vim.tbl_extend("force", call.defaults, call.opts)
+			local entries = vim
+				.iter(merged.finder.results)
+				:map(function(item)
+					return merged.finder.entry_maker(item)
+				end)
+				:totable()
+			local single = vim.iter(entries):find(function(e)
+				return e.value.end_line == nil
+			end)
+			local range = vim.iter(entries):find(function(e)
+				return e.value.end_line ~= nil
+			end)
+
+			assert.are.equal(2, range.lnum)
+			assert.are.equal(3, range.lnend)
+			assert.truthy((range.display(range)):find("|:2–3|", 1, true))
+			assert.are.equal(1, single.lnum)
+			assert.is_nil(single.lnend)
+			assert.truthy((single.display(single)):find("|:1|", 1, true))
+		end)
 	end)
 
 	describe("set_picker_module()", function()

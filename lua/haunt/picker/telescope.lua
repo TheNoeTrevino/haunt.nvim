@@ -103,7 +103,7 @@ function M.show(opts)
 		local max_line_width = 0
 		for _, item in ipairs(items) do
 			max_filename_width = math.max(max_filename_width, vim.fn.strdisplaywidth(display_path(item)))
-			max_line_width = math.max(max_line_width, #tostring(item.line))
+			max_line_width = math.max(max_line_width, vim.fn.strdisplaywidth(utils.line_label(item.line, item.end_line)))
 		end
 
 		displayer = entry_display.create({
@@ -142,7 +142,7 @@ function M.show(opts)
 		return get_displayer()({
 			{ icon, icon_hl },
 			{ path, "TelescopeResultsIdentifier" },
-			{ ":" .. tostring(entry.value.line), "TelescopeResultsNumber" },
+			{ ":" .. utils.line_label(entry.value.line, entry.value.end_line), "TelescopeResultsNumber" },
 			{ note_display, "TelescopeResultsComment" },
 		})
 	end
@@ -182,6 +182,7 @@ function M.show(opts)
 						ordinal = item.text,
 						filename = item.file,
 						lnum = item.line,
+						lnend = item.end_line,
 					}
 				end,
 			}),
@@ -257,6 +258,7 @@ function M.show(opts)
 					ordinal = item.text,
 					filename = item.file,
 					lnum = item.line,
+					lnend = item.end_line,
 				}
 			end,
 		}),

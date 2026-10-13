@@ -135,6 +135,44 @@ describe("haunt.picker.utils", function()
 			-- Text should not contain "nil"
 			assert.is_falsy(items[1].text:match("nil"))
 		end)
+
+		it("labels a range with its span and ends the preview on its last line", function()
+			api.annotate("block", { line1 = 1, line2 = 3 })
+
+			local item = utils.build_picker_items(api.get_bookmarks())[1]
+			assert.are.equal(3, item.end_line)
+			assert.are.same({ 3, #"Line 3" }, item.end_pos)
+			assert.truthy(item.text:find(":1–3 block", 1, true))
+		end)
+
+		it("reads the range end from disk when the file is not loaded", function()
+			local disk_file = vim.fn.tempname() .. ".lua"
+			vim.fn.writefile({ "a", "bb", "ccc" }, disk_file)
+
+			local item = utils.build_picker_items({
+				{ file = disk_file, line = 1, end_line = 3, id = "disk" },
+			})[1]
+			vim.fn.delete(disk_file)
+
+			assert.are.same({ 3, 3 }, item.end_pos)
+		end)
+
+		it("keeps a single line without an end", function()
+			vim.api.nvim_win_set_cursor(0, { 2, 0 })
+			api.annotate("single")
+
+			local item = utils.build_picker_items(api.get_bookmarks())[1]
+			assert.is_nil(item.end_line)
+			assert.is_nil(item.end_pos)
+			assert.truthy(item.text:find(":2 single", 1, true))
+		end)
+	end)
+
+	describe("line_label()", function()
+		it("formats a single line and a range", function()
+			assert.are.equal("45", utils.line_label(45))
+			assert.are.equal("45–48", utils.line_label(45, 48))
+		end)
 	end)
 
 	describe("jump_to_bookmark()", function()

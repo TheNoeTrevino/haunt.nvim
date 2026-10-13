@@ -12,6 +12,7 @@
 ---@field get_haunt fun(): HauntModule
 ---@field with_buffer_context fun(bufnr: number, line: number, callback: function): any
 ---@field build_picker_items fun(bookmarks: Bookmark[]): PickerItem[]
+---@field line_label fun(line: number, end_line?: number): string
 ---@field jump_to_bookmark fun(item: PickerItem)
 ---@field handle_edit_annotation fun(ctx: EditAnnotationContext)
 
@@ -97,6 +98,33 @@ function M.with_buffer_context(bufnr, line, callback)
 	return result
 end
 
+--- Format a bookmark's lines for a picker label: `45`, or `45–48` for a range
+---@param line number 1-based first line
+---@param end_line? number 1-based last line of a range
+---@return string label
+function M.line_label(line, end_line)
+	if end_line then
+		return string.format("%d–%d", line, end_line)
+	end
+	return tostring(line)
+end
+
+---@private
+--- Byte length of a line, from its loaded buffer or else the file on disk
+---@param file string Absolute file path
+---@param lnum number 1-based line number
+---@return number|nil length Nil when the line cannot be read
+local function line_length(file, lnum)
+	local bufnr = vim.fn.bufnr(file)
+	if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+		local line = vim.api.nvim_buf_get_lines(bufnr, lnum - 1, lnum, false)[1]
+		return line and #line or nil
+	end
+	local ok, lines = pcall(vim.fn.readfile, file, "", lnum)
+	local line = ok and lines[lnum] or nil
+	return line and #line or nil
+end
+
 --- Build picker items from bookmarks
 ---@param bookmarks Bookmark[]
 ---@return PickerItem[]
@@ -105,9 +133,15 @@ function M.build_picker_items(bookmarks)
 	for i, bm in ipairs(bookmarks) do
 		local relpath = vim.fn.fnamemodify(bm.file, ":.")
 		local filename = vim.fn.fnamemodify(bm.file, ":t")
-		local text = relpath .. ":" .. bm.line
+		local text = relpath .. ":" .. M.line_label(bm.line, bm.end_line)
 		if bm.note and bm.note ~= "" then
 			text = text .. " " .. bm.note
+		end
+		-- Previews highlight the whole range, through the end of its last line
+		local end_pos = nil
+		if bm.end_line then
+			local len = line_length(bm.file, bm.end_line)
+			end_pos = len and { bm.end_line, len } or nil
 		end
 		table.insert(items, {
 			idx = i,
@@ -116,10 +150,12 @@ function M.build_picker_items(bookmarks)
 			relpath = relpath,
 			filename = filename,
 			pos = { bm.line, 0 },
+			end_pos = end_pos,
 			text = text,
 			note = bm.note,
 			id = bm.id,
 			line = bm.line,
+			end_line = bm.end_line,
 		})
 	end
 	return items

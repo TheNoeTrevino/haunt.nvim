@@ -444,6 +444,18 @@ describe("haunt.picker.fzf with mock", function()
 			-- Default fzf edit_annotation key is "ctrl-e"
 			assert.is_not_nil(opts.actions["ctrl-e"])
 		end)
+
+		it("adds a range token after the location, single lines unchanged", function()
+			vim.api.nvim_win_set_cursor(0, { 1, 0 })
+			api.annotate("single")
+			api.annotate("block", { line1 = 2, line2 = 3 })
+
+			fzf_picker.show()
+
+			local labels = table.concat(mock_fzf.fzf_exec_items, "\n")
+			assert.truthy(labels:find(":1:0 single", 1, true))
+			assert.truthy(labels:find(":2:0 L2–3 block", 1, true))
+		end)
 	end)
 
 	describe("default action", function()

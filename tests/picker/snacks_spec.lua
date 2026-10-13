@@ -237,6 +237,45 @@ describe("haunt.picker.snacks", function()
 			local last = result[#result]
 			assert.truthy(last[1]:find("Format note", 1, true))
 		end)
+
+		it("shows a range's span after the row and keeps a single line as is", function()
+			-- Mimics Snacks: path, then :row
+			package.loaded["snacks.picker.format"] = {
+				filename = function(item)
+					return {
+						{ "PATH", "SnacksPickerFile" },
+						{ ":", "SnacksPickerDelim" },
+						{ tostring(item.pos[1]), "SnacksPickerRow" },
+						{ " " },
+					}
+				end,
+			}
+			api.annotate("block", { line1 = 2, line2 = 3 })
+
+			snacks_picker.show()
+			local items = execute_finder(mock_snacks.picker_config)
+			---@param item PickerItem
+			local function label(item)
+				local text = vim
+					.iter(mock_snacks.picker_config.format(item, { opts = {} }))
+					:map(function(chunk)
+						return chunk[1]
+					end)
+					:join("")
+				return text
+			end
+			local single = vim.iter(items):find(function(i)
+				return i.end_line == nil
+			end)
+			local range = vim.iter(items):find(function(i)
+				return i.end_line ~= nil
+			end)
+
+			assert.truthy(label(single):find("PATH:1 ", 1, true))
+			assert.truthy(label(range):find("PATH:2–3 ", 1, true))
+			assert.are.same({ 3, #"Line 3" }, range.end_pos)
+			assert.is_nil(single.end_pos)
+		end)
 	end)
 
 	describe("finder function", function()

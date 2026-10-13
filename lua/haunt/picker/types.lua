@@ -12,10 +12,12 @@
 ---@field relpath string Relative file path (cached)
 ---@field filename string Filename only (cached)
 ---@field pos number[] Position as {line, col}
+---@field end_pos? number[] End of a range as {line, col}, through its last line
 ---@field text string Formatted display text
 ---@field note string|nil Annotation text if present
 ---@field id string Unique bookmark identifier
 ---@field line number 1-based line number
+---@field end_line? number 1-based last line of a range; nil for single lines
 
 ---@class PickerModule
 ---@field show fun(opts?: table): boolean Show the picker

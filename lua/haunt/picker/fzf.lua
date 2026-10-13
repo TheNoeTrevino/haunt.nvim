@@ -225,6 +225,10 @@ function M.show(opts)
 			label = string.format("%s:%d:%d", item.relpath, item.line, item.pos[2] or 0)
 		end
 		if label then
+			-- Keep the parsable path:line:col prefix; the range is its own token
+			if item.end_line then
+				label = label .. " L" .. utils.line_label(item.line, item.end_line)
+			end
 			if item.note and item.note ~= "" then
 				label = label .. " " .. item.note
 			end

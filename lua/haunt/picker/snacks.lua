@@ -138,6 +138,17 @@ function M.show(opts)
 		format = function(item, picker)
 			local result = require("snacks.picker.format").filename(item, picker)
 
+			-- A range shows its last line after the row: path:45–48
+			if item.end_line then
+				for i, chunk in ipairs(result) do
+					if chunk[2] == "SnacksPickerRow" then
+						table.insert(result, i + 1, { "–", "SnacksPickerDelim" })
+						table.insert(result, i + 2, { tostring(item.end_line), "SnacksPickerRow" })
+						break
+					end
+				end
+			end
+
 			-- Add annotation if present
 			if item.note and item.note ~= "" then
 				result[#result + 1] = { item.note, "SnacksPickerComment" }
