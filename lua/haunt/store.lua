@@ -128,9 +128,13 @@ local function sync_lines_from_extmarks()
 			goto continue
 		end
 
-		local cur = display.get_extmark_line(bufnr, bm.extmark_id)
+		-- Ask the extmark, not the snapshot, whether this is a range: a range
+		-- whose lines were all deleted reads as one line, but undo restores
+		-- the extmark's end and the next sync must pick it back up.
+		local cur, cur_end = display.get_extmark_range(bufnr, bm.extmark_id)
 		if cur then
 			bm.line = cur
+			bm.end_line = (cur_end and cur_end > cur) and cur_end or nil
 		end
 
 		::continue::
