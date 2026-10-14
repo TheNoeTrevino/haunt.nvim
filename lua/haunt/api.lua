@@ -770,7 +770,8 @@ end
 ---
 --- Edits that exact bookmark without moving the cursor (e.g., from the
 --- picker), so it stays right when several bookmarks start on one line.
---- Empty text cancels the operation.
+--- Only the text changes; a range keeps its lines. Empty text cancels the
+--- operation.
 ---
 ---@param bookmark_id string The unique ID of the bookmark to edit
 ---@param text string The new annotation text

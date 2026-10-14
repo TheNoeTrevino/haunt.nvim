@@ -71,12 +71,16 @@ M.DEFAULT = {
 }
 --minidoc_afterlines_end
 
+---@tag HauntRangeConfig
+---@text
 --- Sign column drawing for range annotations.
 ---
 --- The first line of a range keeps the bookmark sign. With style "rail" the
 --- lines below it get `glyphs.body` and the last line gets `glyphs.tail`,
 --- highlighted with `HauntRange`. The rail sits at `priority`, below
 --- gitsigns (6), so git status on a covered line is never hidden.
+--- `HauntRange` links to `sign_hl` unless you define it yourself.
+--- See |haunt-ranges|.
 ---@class HauntRangeConfig
 ---@field style? "rail"|"none" How to draw the lines a range covers (default: "rail")
 ---@field reveal? "always"|"cursor" "cursor" draws the rail only while the cursor is inside the range (default: "always")

@@ -21,6 +21,9 @@
 ---   - `a` (normal mode): Edit the bookmark's annotation (`ctrl-e` in fzf-lua)
 ---
 --- The keybindings can be customized via |HauntConfig|.picker_keys.
+---
+--- Range annotations are labelled `path:45–48` in Snacks and Telescope,
+--- and fzf-lua adds an `L45–48` token after `path:line:col`.
 
 ---@type PickerRouter
 ---@diagnostic disable-next-line: missing-fields
