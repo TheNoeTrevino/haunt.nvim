@@ -194,6 +194,42 @@ Set `virt_text_pos = "above"` to display annotations in a bordered box above the
 
 </details>
 
+### Range Annotations
+
+<details>
+  <summary>Click to expand</summary>
+
+Call `annotate()` from Visual mode, or run `:'<,'>HauntAnnotate [text]`, to annotate several lines at once.
+Every Visual mode (`v`, `V`, `<C-v>`) is treated as linewise. The bookmark sits on the first line and saves an `end_line`.
+
+Ranges can nest and overlap. In short:
+
+- `annotate()` edits the bookmark that _starts_ on the cursor line, otherwise it creates a new one, even inside a range
+- Reselect from a range's first line and annotate to resize it. A one-line selection turns it back into a single line
+- `delete()` and `toggle_annotation()` use the bookmark starting on the line, else the innermost (smallest) range containing it
+- When several bookmarks start on one line: single line first, then the smaller range, then the older one
+
+See [docs/visual-annotations/priority.md](docs/visual-annotations/priority.md) for the full table.
+
+The `range` options control the sign column:
+
+- `style` — `"rail"` (default) draws `glyphs.body` down the range and `glyphs.tail` on its last line; `"none"` draws only the sign
+- `reveal` — `"always"` (default), or `"cursor"` to draw the rail only while the cursor is inside the range
+- `glyphs` — `{ body = "│", tail = "╰" }`, at most two cells each
+- `priority` — sign priority of the rail (default `5`, below gitsigns' `6`)
+
+The rail uses the `HauntRange` highlight, which links to your `sign_hl` unless you define it.
+Rails hide with the annotations when you call `toggle_all_lines()`.
+
+Ranges show up everywhere a bookmark does:
+
+- Quickfix entries set `end_lnum`
+- Snacks and Telescope label them `path:45–48`; fzf-lua adds an `L45–48` token after `path:line:col`
+- `sidekick` and `yank_locations()` write `:L45-L48`
+- Hook payloads carry `end_line` (nil for a single line); `on_update` adds `old_end_line` and `new_end_line`
+
+</details>
+
 ## Usage
 
 ### API
