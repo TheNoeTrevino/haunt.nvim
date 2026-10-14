@@ -124,8 +124,8 @@ return {
     local prefix = "<leader>h"
 
     -- annotations
-    map("n", prefix .. "a", function()
-      haunt.annotate()
+    map({ "n", "x" }, prefix .. "a", function()
+      haunt.annotate() -- in Visual mode, annotates the selected lines
     end, { desc = "Annotate" })
 
     map("n", prefix .. "t", function()
@@ -214,6 +214,12 @@ local haunt_sk = require("haunt.sidekick")
 -- or edit the annotation if it already exists
 haunt.annotate()
 
+-- Annotate a line range (Visual mode uses the selection)
+haunt.annotate("extract into a helper", { line1 = 40, line2 = 52 })
+
+-- Set the annotation of a bookmark by id, without moving the cursor
+haunt.annotate_by_id(haunt.get_bookmarks()[1].id, "revisit this")
+
 -- Toggle visibility of the current annotation
 haunt.toggle_annotation()
 
@@ -243,7 +249,7 @@ haunt_picker.show({ prompt = "Bookmarks> " })         -- fzf-lua options
 
 -- Get bookmark locations formatted for sidekick.nvim.
 -- Returns bookmarks in sidekick-compatible format:
--- `- @/{path} :L{line} - "{note}"`
+-- `- @/{path} :L{line} - "{note}"`, or `:L{line}-L{end_line}` for a range
 -- see :h haunt-sidekick for more info, and the sidekick section below
 haunt_sk.get_locations()
 haunt_sk.get_locations({current_buffer = true})
@@ -261,7 +267,7 @@ haunt.change_data_dir(nil) -- reset to default
 
 Or you can use the user commands:
 
-`HauntAnnotate`
+`[range]HauntAnnotate [text]`
 
 `HauntClear`
 
