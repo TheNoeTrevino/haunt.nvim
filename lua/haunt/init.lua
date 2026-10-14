@@ -52,6 +52,7 @@
 ---
 --- Or use the provided commands: >vim
 ---   :HauntAnnotate
+---   :'<,'>HauntAnnotate    " Annotate a range of lines
 ---   :HauntNext
 ---   :HauntPrev
 ---   :HauntToggle
@@ -77,8 +78,8 @@
 ---   vim.keymap.set('n', 'mp', function() require('haunt.api').prev() end,
 ---     { desc = "Previous bookmark" })
 ---
----   -- Annotate bookmark
----   vim.keymap.set('n', 'ma', function() require('haunt.api').annotate() end,
+---   -- Annotate bookmark, or the selected lines in Visual mode
+---   vim.keymap.set({ 'n', 'x' }, 'ma', function() require('haunt.api').annotate() end,
 ---     { desc = "Annotate bookmark" })
 ---
 ---   -- Delete bookmark
@@ -95,6 +96,37 @@
 ---   vim.keymap.set('n', 'ml', function() require('haunt.picker').show() end,
 ---     { desc = "List bookmarks" })
 --- <
+---
+--- # Range Annotations ~
+---                                                               *haunt-ranges*
+---
+--- Call |M.annotate()| from Visual mode, or run
+--- `:[range]HauntAnnotate [text]`, to annotate several lines. Every Visual
+--- mode (v, V, CTRL-V) is linewise. The bookmark sits on the first line and
+--- saves an `end_line`.
+---
+--- Ranges can nest and overlap:
+---   - `annotate()` edits the bookmark that starts on the cursor line, else
+---     creates one, even inside a range.
+---   - Reselect from a range's first line to resize it. One line makes it a
+---     single-line bookmark again.
+---   - `delete()` and `toggle_annotation()` use the bookmark starting on the
+---     line, else the innermost (smallest) range containing it.
+---   - Several bookmarks on one start line: single line first, then the
+---     smaller range, then the older one.
+--- Full table: docs/visual-annotations/priority.md in the repository.
+---
+--- The rail in the sign column is set by |HauntRangeConfig| and drawn with
+--- the `HauntRange` highlight, which links to `sign_hl` unless you define it.
+--- Rails hide with the annotations on |M.toggle_all_lines()|.
+---
+--- Range-aware outputs:
+---   - Quickfix entries set `end_lnum`.
+---   - Snacks and Telescope label `path:45–48`; fzf-lua adds `L45–48`
+---     after `path:line:col`.
+---   - |haunt-sidekick| and `yank_locations()` write `:L45-L48`.
+---   - Hook payloads carry `end_line` (nil for a single line); `on_update`
+---     adds `old_end_line` and `new_end_line`.
 ---
 --- # Persistence ~
 ---                                                          *haunt-persistence*
